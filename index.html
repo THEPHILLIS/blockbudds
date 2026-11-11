@@ -162,6 +162,7 @@
       background: var(--grass);
       box-shadow: 3px 3px 0 var(--dirt);
     }
+    .composer p { color: var(--ink-dim); }
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -479,7 +480,70 @@
       font-size: 0.92rem;
     }
     .profile-stats strong { color: var(--ink); }
-    .profile .bio { color: var(--ink-dim); max-width: 50em; }
+    .profile .bio { color: var(--ink-dim); max-width: 50em; white-space: pre-wrap; }
+    .profile-edit { margin-top: 18px; display: grid; gap: 12px; }
+    .profile-builds { margin: 8px 0 32px; display: flex; flex-direction: column; gap: 16px; }
+    .profile-builds h2 { font-size: 1.15rem; letter-spacing: -0.02em; }
+    .author-link {
+      background: none;
+      border: 0;
+      padding: 0;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .author-link:hover { color: var(--grass-glow); }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .nav-account { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .nav-account .who {
+      max-width: 9rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink-dim);
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .nav-account .btn { padding: 6px 12px; }
+
+    .auth-card { max-width: 480px; padding: 18px; margin: 8px 0 28px; }
+    .auth-card h2 { font-size: 1rem; margin-bottom: 12px; }
+    .auth-switch { margin-top: 14px; color: var(--ink-dim); font-size: 0.92rem; }
+    .auth-switch button {
+      background: none;
+      border: 0;
+      padding: 0;
+      color: var(--grass-glow);
+      font-weight: 700;
+    }
+    .auth-reason { color: var(--gold); margin: 4px 0 8px; }
+    .choice-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .choice {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.9rem;
+      font-weight: 650;
+      color: var(--ink);
+      background: var(--bg);
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .choice input { width: auto; }
+    .verified {
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .platform.tiktok { background: #111; color: #fff; box-shadow: inset 0 0 0 1px #25f4ee; }
+    .self-card { padding: 16px 18px; margin: 0 0 16px; }
+    .self-card h2 { font-size: 1rem; margin-bottom: 8px; }
+    .self-card p { color: var(--ink-dim); margin-bottom: 12px; }
 
     /* Toast + footer */
     .toast {
@@ -511,6 +575,7 @@
 
     @media (max-width: 900px) {
       .filter-grid, .streamer-grid { grid-template-columns: 1fr 1fr; }
+      #filter-name-field { grid-column: 1 / -1; }
     }
     @media (max-width: 680px) {
       :root { --header-h: 56px; --bottom-nav-h: 60px; }
@@ -548,6 +613,21 @@
       }
       .mobile-nav button[aria-current="page"] { color: var(--grass-glow); }
       .site-footer { margin-bottom: calc(16px + var(--bottom-nav-h)); }
+      .nav-account .who { max-width: 5.5rem; }
+      #filter-name-field { grid-column: 1 / -1; }
+      #streamer-filters {
+        position: sticky;
+        top: calc(var(--header-h) + 8px);
+        z-index: 25;
+      }
+      #streamer-filters input,
+      #streamer-filters select,
+      .auth-card input,
+      .profile-edit input,
+      .profile-edit textarea {
+        min-height: 44px;
+        font-size: 16px;
+      }
       .post-images.count-3 { grid-template-columns: 1fr 1fr; aspect-ratio: auto; }
       .post-images.count-3 .shot:first-child { grid-row: auto; grid-column: 1 / -1; aspect-ratio: 16/9; }
       .post-images.count-3 .shot { aspect-ratio: 16/10; height: auto; }
@@ -568,18 +648,30 @@
       </svg>
       <span class="brand-word">Block<span>Budds</span></span>
     </a>
-    <nav class="nav-main" aria-label="Primary">
-      <button type="button" data-go="builds" aria-current="page">Builds</button>
-      <button type="button" data-go="streamers">Streamers</button>
-      <button type="button" data-go="profile">Profile</button>
-    </nav>
+    <div class="header-actions">
+      <nav class="nav-main" aria-label="Primary">
+        <button type="button" data-go="builds" aria-current="page">Builds</button>
+        <button type="button" data-go="streamers">Streamers</button>
+        <button type="button" data-go="profile">Profile</button>
+      </nav>
+      <div id="nav-account" class="nav-account"></div>
+    </div>
   </header>
 
   <main id="app" class="wrap">
     <section id="view-builds" class="view is-active" data-view="builds">
       <div class="page-intro">
         <h1>Builds</h1>
-        <p>Share a creation, drop a like, and check today's most-loved post. Everything in this prototype stays in your browser until a backend is hooked up.</p>
+        <p>Share a creation, drop a like, and check today's most-loved post.</p>
+      </div>
+
+      <div id="post-gate" class="card composer" hidden>
+        <h2>New post</h2>
+        <p class="desc">Make an account before you post. You can still browse builds without one.</p>
+        <div class="card-actions" style="margin-top:14px">
+          <button type="button" class="btn btn-primary" data-account="login">Log in</button>
+          <button type="button" class="btn" data-account="signup">Sign up</button>
+        </div>
       </div>
 
       <form id="new-post-form" class="card composer" autocomplete="off">
@@ -587,20 +679,20 @@
         <div class="form-grid">
           <div class="field span-2">
             <label for="post-title">Title</label>
-            <input id="post-title" name="title" required maxlength="120" placeholder="e.g. Cliffside oak manor" />
+            <input id="post-title" name="build-title" autocomplete="off" required maxlength="120" placeholder="e.g. Cliffside oak manor" />
           </div>
           <div class="field span-2">
             <label for="post-desc">Description</label>
-            <textarea id="post-desc" name="description" maxlength="2000" placeholder="What did you build, and how long did it take?"></textarea>
+            <textarea id="post-desc" name="build-description" autocomplete="off" maxlength="2000" placeholder="What did you build, and how long did it take?"></textarea>
           </div>
           <div class="field">
             <label for="post-tags">Tags</label>
-            <input id="post-tags" name="tags" maxlength="200" placeholder="survival, manor, oak" />
+            <input id="post-tags" name="build-tags" autocomplete="off" maxlength="200" placeholder="survival, manor, oak" />
             <span class="hint">Comma-separated</span>
           </div>
           <div class="field">
             <label for="post-version">Minecraft version</label>
-            <input id="post-version" name="version" list="version-list" maxlength="32" placeholder="1.21" />
+            <input id="post-version" name="minecraft-version" autocomplete="off" list="version-list" maxlength="32" placeholder="1.21" />
             <datalist id="version-list">
               <option value="1.21"></option>
               <option value="1.21.1"></option>
@@ -615,12 +707,12 @@
           <div class="field span-2">
             <label for="post-images">Images (up to 3)</label>
             <div class="file-picker">
-              <input id="post-images" name="images" type="file" accept="image/*" multiple />
+              <input id="post-images" name="build-images" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple autocomplete="off" />
               <button type="button" class="btn btn-ghost" id="pick-images">Choose images</button>
               <span class="hint" id="image-count">No images selected</span>
             </div>
             <div id="image-previews" class="image-row" style="margin-top:8px"></div>
-            <span class="hint">PNG, JPG or GIF. Max three — extras are ignored.</span>
+            <span class="hint">PNG, JPG, WebP, GIF or AVIF. Max three — extras are ignored.</span>
           </div>
         </div>
         <div class="form-actions">
@@ -637,25 +729,26 @@
         <h1>Streamers</h1>
         <p>Find Minecraft streamers by name, platform, day, time, and world type. Filters are strict: a streamer only appears if they match every filter you set.</p>
       </div>
-      <form id="streamer-filters" class="card filters">
-        <h2>Search</h2>
+      <form id="streamer-filters" class="card filters" autocomplete="off">
+        <h2>Search streamers</h2>
         <div class="filter-grid">
-          <div class="field">
+          <div class="field" id="filter-name-field">
             <label for="filter-name">Name</label>
-            <input id="filter-name" name="name" placeholder="Search names" />
+            <input id="filter-name" name="streamer-search" autocomplete="off" placeholder="Search names" enterkeyhint="search" />
           </div>
           <div class="field">
             <label for="filter-platform">Platform</label>
-            <select id="filter-platform" name="platform">
+            <select id="filter-platform" name="stream-platform" autocomplete="off">
               <option value="">Any</option>
-              <option value="Twitch">Twitch</option>
-              <option value="YouTube">YouTube</option>
-              <option value="Kick">Kick</option>
+              <option value="twitch">Twitch</option>
+              <option value="youtube">YouTube</option>
+              <option value="kick">Kick</option>
+              <option value="tiktok">TikTok</option>
             </select>
           </div>
           <div class="field">
             <label for="filter-day">Day</label>
-            <select id="filter-day" name="day">
+            <select id="filter-day" name="stream-day" autocomplete="off">
               <option value="">Any</option>
               <option value="Mon">Monday</option>
               <option value="Tue">Tuesday</option>
@@ -668,41 +761,126 @@
           </div>
           <div class="field">
             <label for="filter-time">Time</label>
-            <select id="filter-time" name="time">
+            <select id="filter-time" name="stream-time" autocomplete="off">
               <option value="">Any</option>
               <option value="morning">Morning</option>
               <option value="afternoon">Afternoon</option>
               <option value="evening">Evening</option>
-              <option value="night">Night</option>
+              <option value="late night">Late night</option>
             </select>
           </div>
           <div class="field">
             <label for="filter-type">Minecraft type</label>
-            <select id="filter-type" name="type">
+            <select id="filter-type" name="minecraft-type" autocomplete="off">
               <option value="">Any</option>
-              <option value="Survival">Survival</option>
-              <option value="Creative">Creative</option>
-              <option value="Hardcore">Hardcore</option>
-              <option value="Modded">Modded</option>
-              <option value="SMP">SMP</option>
-              <option value="Minigames">Minigames</option>
+              <option value="survival">Survival</option>
+              <option value="creative">Creative</option>
+              <option value="hardcore">Hardcore</option>
+              <option value="modded">Modded</option>
+              <option value="smp">SMP</option>
+              <option value="minigames">Minigames</option>
             </select>
           </div>
         </div>
       </form>
+      <div id="streamer-self"></div>
       <div id="streamer-results" class="streamer-grid"></div>
     </section>
 
     <section id="view-profile" class="view" data-view="profile">
       <div class="page-intro">
         <h1>Profile</h1>
-        <p>A preview of how a streamer profile will look. Follow remembers its state in this browser.</p>
+        <p id="profile-lead">Your profile, your builds, and who you follow.</p>
       </div>
       <div id="profile-root"></div>
     </section>
+
+    <section id="view-account" class="view" data-view="account">
+      <div class="page-intro">
+        <h1 id="account-title">Log in</h1>
+        <p id="account-lead">Log in to post, like, and follow.</p>
+      </div>
+      <p id="auth-reason" class="auth-reason" hidden></p>
+
+      <form id="form-login" class="card auth-card" autocomplete="on">
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" autocomplete="email" required maxlength="200" />
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label for="login-password">Password</label>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required minlength="6" />
+        </div>
+        <p class="form-error" id="login-error" role="alert"></p>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Log in</button>
+        </div>
+        <p class="auth-switch">
+          <button type="button" data-account="forgot">Forgot password?</button>
+          <span> · </span>
+          <button type="button" data-account="signup">Sign up</button>
+        </p>
+      </form>
+
+      <form id="form-signup" class="card auth-card" autocomplete="on" hidden>
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input id="signup-email" name="email" type="email" autocomplete="email" required maxlength="200" />
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label for="signup-password">Password</label>
+          <input id="signup-password" name="new-password" type="password" autocomplete="new-password" required minlength="6" />
+          <span class="hint">At least 6 characters.</span>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label for="signup-username">Username</label>
+          <input id="signup-username" name="username" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" placeholder="e.g. oakwright" />
+          <span class="hint">3–20 letters, numbers, or underscores.</span>
+        </div>
+        <p class="form-error" id="signup-error" role="alert"></p>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Create account</button>
+        </div>
+        <p class="auth-switch">
+          <button type="button" data-account="login">Already have an account? Log in</button>
+        </p>
+      </form>
+
+      <form id="form-forgot" class="card auth-card" autocomplete="on" hidden>
+        <div class="field">
+          <label for="forgot-email">Email</label>
+          <input id="forgot-email" name="email" type="email" autocomplete="email" required maxlength="200" />
+        </div>
+        <p class="form-error" id="forgot-error" role="alert"></p>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Send reset link</button>
+        </div>
+        <p class="auth-switch">
+          <button type="button" data-account="login">Back to log in</button>
+        </p>
+      </form>
+
+      <div id="panel-check-email" class="card auth-card" hidden>
+        <p id="check-email-copy" class="desc"></p>
+        <div class="card-actions" style="margin-top:14px">
+          <button type="button" class="btn btn-primary" data-account="login">Log in</button>
+        </div>
+      </div>
+
+      <form id="form-reset" class="card auth-card" autocomplete="on" hidden>
+        <div class="field">
+          <label for="reset-password">New password</label>
+          <input id="reset-password" name="new-password" type="password" autocomplete="new-password" required minlength="6" />
+        </div>
+        <p class="form-error" id="reset-error" role="alert"></p>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Save password</button>
+        </div>
+      </form>
+    </section>
   </main>
 
-  <footer class="site-footer">BlockBudds prototype · blockbudds.com · posts, likes and follows stay on this device</footer>
+  <footer class="site-footer">BlockBudds · blockbudds.com</footer>
   <nav class="mobile-nav" aria-label="Mobile">
     <button type="button" data-go="builds" aria-current="page">Builds</button>
     <button type="button" data-go="streamers">Streamers</button>
@@ -710,642 +888,1237 @@
   </nav>
   <div id="toast" class="toast" role="status"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script>
-  (function () {
-    "use strict";
+(function () {
+  "use strict";
 
-    /* =====================================================================
-       DATA LAYER
-       Keep this section small and self-contained. Swap the storage helpers
-       for Supabase (or another backend) later without rewriting the UI.
-       ===================================================================== */
-    const STORAGE_KEYS = {
-      posts: "blockbudds.posts",
-      likes: "blockbudds.likes",
-      follows: "blockbudds.follows"
-    };
+  var SUPABASE_URL = "https://kpaiacaqylipffdilnci.supabase.co";
+  var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwYWlhY2FxeWxpcGZmZGlsbmNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0MTY4NjksImV4cCI6MjEwOTk5Mjg2OX0.res_qUFeqmad0p_1Nj2qVZ1y7rZQYCpFP6q40jFcDlw";
+  var SITE_URL = "https://blockbudds.com";
 
-    const SEED_IMAGES = {
-      melon: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#7eb8d6"/><rect y="250" width="640" height="110" fill="#4e8a32"/><rect y="250" width="640" height="14" fill="#5aa63a"/><rect x="0" y="300" width="640" height="20" fill="#3d6e24"/><rect x="40" y="200" width="80" height="60" fill="#6b4a28"/><rect x="40" y="160" width="80" height="40" fill="#3d7a24"/><rect x="200" y="210" width="56" height="40" fill="#c44b3c"/><rect x="264" y="210" width="56" height="40" fill="#3a8f3a"/><rect x="328" y="210" width="56" height="40" fill="#c44b3c"/><rect x="392" y="210" width="56" height="40" fill="#2e7a2e"/><rect x="200" y="250" width="248" height="8" fill="#5c3a18"/><rect x="480" y="120" width="28" height="130" fill="#6b4a28"/><rect x="452" y="88" width="84" height="48" fill="#3d7a24"/><circle cx="520" cy="70" fill="#f3e2a0" r="22"/><rect x="80" y="280" width="480" height="16" fill="#8a6234"/></svg>'),
-      manor: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3b46a"/><stop offset="1" stop-color="#7ea0c8"/></linearGradient></defs><rect width="640" height="360" fill="url(#s)"/><rect y="220" width="640" height="140" fill="#3d5a32"/><path d="M0 260 L180 200 L180 360 L0 360 Z" fill="#5a4630"/><rect x="250" y="140" width="200" height="130" fill="#c4b49a"/><rect x="240" y="118" width="220" height="28" fill="#6b4a28"/><polygon points="240,118 350,60 460,118" fill="#4a3018"/><rect x="280" y="170" width="28" height="36" fill="#6fa8c4"/><rect x="390" y="170" width="28" height="36" fill="#6fa8c4"/><rect x="332" y="200" width="36" height="70" fill="#5c3a18"/><rect x="470" y="90" width="28" height="80" fill="#7a7a7a"/><rect x="0" y="300" width="640" height="60" fill="#2c3a22"/></svg>'),
-      cathedral: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#12151b"/><rect y="240" width="640" height="120" fill="#1b1f28"/><path d="M140 240 L200 80 L260 240 Z" fill="#2a3140"/><path d="M260 240 L320 40 L380 240 Z" fill="#323a4a"/><path d="M380 240 L440 90 L500 240 Z" fill="#2a3140"/><rect x="300" y="140" width="40" height="100" fill="#1c2230"/><rect x="308" y="148" width="24" height="40" fill="#3ecf8e" opacity=".7"/><circle cx="200" cy="160" r="8" fill="#7ad1ff" opacity=".8"/><circle cx="440" cy="170" r="8" fill="#7ad1ff" opacity=".8"/><rect x="80" y="220" width="480" height="20" fill="#3a4254"/></svg>')
-    };
+  var PLATFORM_LABEL = { twitch: "Twitch", youtube: "YouTube", kick: "Kick", tiktok: "TikTok" };
+  var TIME_LABEL = { morning: "Morning", afternoon: "Afternoon", evening: "Evening", "late night": "Late night" };
+  var TYPE_LABEL = {
+    survival: "Survival",
+    creative: "Creative",
+    hardcore: "Hardcore",
+    modded: "Modded",
+    smp: "SMP",
+    minigames: "Minigames"
+  };
+  var DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  var TYPES = ["survival", "creative", "hardcore", "modded", "smp", "minigames"];
 
-    const SEED_POSTS = [
-      {
-        id: "seed-melon-farm",
-        title: "Compact auto melon farm",
-        description: "A tidy 3-wide melon farm that fits under a starter house. Hoppers do the heavy lifting; output chest is on the left.",
-        tags: ["farm", "redstone", "survival"],
-        version: "1.20",
-        images: [SEED_IMAGES.melon],
-        likes: 41,
-        createdAt: "2026-11-08T18:00:00.000Z",
-        author: "RedstoneNoodle"
-      },
-      {
-        id: "seed-manor",
-        title: "Cliffside oak manor",
-        description: "Survival manor perched on a coastal cliff. Oak and pale stone, with a hidden cellar under the stairs.",
-        tags: ["build", "manor", "survival"],
-        version: "1.21",
-        images: [SEED_IMAGES.manor],
-        likes: 24,
-        createdAt: "2026-11-07T15:30:00.000Z",
-        author: "MapleBlocks"
-      },
-      {
-        id: "seed-cathedral",
-        title: "Deepslate cathedral",
-        description: "Started as a mineshaft cleanup and turned into a cathedral. Soul lanterns in the arches, deepslate brick everywhere.",
-        tags: ["build", "cathedral", "hardcore"],
-        version: "1.21",
-        images: [SEED_IMAGES.cathedral],
-        likes: 17,
-        createdAt: "2026-11-06T21:10:00.000Z",
-        author: "QuartzQuill"
-      }
-    ];
+  var db = null;
+  var pendingImages = [];
+  var toastTimer = null;
+  var likeBusy = {};
+  var profileToken = 0;
+  var state = {
+    session: null,
+    me: null,
+    builds: [],
+    pinnedId: null,
+    liked: {},
+    streamers: [],
+    myStreamer: null,
+    buildsLoaded: false,
+    streamersLoaded: false,
+    buildsError: "",
+    streamersError: "",
+    view: "builds",
+    profileId: null,
+    accountMode: "login",
+    authReason: "",
+    checkKind: "signup",
+    pendingEmail: "",
+    booted: false
+  };
 
-    function readJson(key, fallback) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (raw === null) return fallback;
-        return JSON.parse(raw);
-      } catch (err) {
-        console.warn("BlockBudds: could not read", key, err);
-        return fallback;
-      }
-    }
+  var els = {
+    feed: document.getElementById("feed"),
+    form: document.getElementById("new-post-form"),
+    gate: document.getElementById("post-gate"),
+    error: document.getElementById("post-error"),
+    imageInput: document.getElementById("post-images"),
+    previews: document.getElementById("image-previews"),
+    filters: document.getElementById("streamer-filters"),
+    streamerResults: document.getElementById("streamer-results"),
+    streamerSelf: document.getElementById("streamer-self"),
+    profileRoot: document.getElementById("profile-root"),
+    profileLead: document.getElementById("profile-lead"),
+    toast: document.getElementById("toast"),
+    navAccount: document.getElementById("nav-account"),
+    accountTitle: document.getElementById("account-title"),
+    accountLead: document.getElementById("account-lead"),
+    authReason: document.getElementById("auth-reason")
+  };
 
-    function writeJson(key, value) {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
+  function showToast(msg) {
+    els.toast.textContent = msg;
+    els.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 2400);
+  }
 
-    function getPosts() {
-      const posts = readJson(STORAGE_KEYS.posts, null);
-      if (!posts) {
-        writeJson(STORAGE_KEYS.posts, SEED_POSTS);
-        return SEED_POSTS.slice();
-      }
-      return posts;
-    }
+  function escapeHtml(str) {
+    return String(str == null ? "" : str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
 
-    function savePosts(posts) {
-      writeJson(STORAGE_KEYS.posts, posts);
-    }
-
-    function savePost(post) {
-      const posts = getPosts();
-      posts.unshift(post);
-      savePosts(posts);
-      return post;
-    }
-
-    function updatePost(id, patch) {
-      const posts = getPosts().map(function (p) {
-        return p.id === id ? Object.assign({}, p, patch) : p;
+  function formatDate(iso) {
+    try {
+      return new Date(iso).toLocaleDateString("en-GB", {
+        day: "numeric", month: "short", year: "numeric"
       });
-      savePosts(posts);
-      return posts;
+    } catch (e) {
+      return "";
     }
+  }
 
-    function getLikedMap() {
-      return readJson(STORAGE_KEYS.likes, {});
+  function todayLabel() {
+    return new Date().toLocaleDateString("en-GB", {
+      weekday: "short", day: "numeric", month: "short", year: "numeric"
+    });
+  }
+
+  function initials(name) {
+    return (name || "?")
+      .split(/\s+/)
+      .map(function (w) { return w.charAt(0); })
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  function friendlyError(error) {
+    if (!error) return "Something went wrong. Try again.";
+    var msg = error.message || "";
+    var blob = msg + " " + (error.details || "") + " " + (error.hint || "");
+    if (error.code === "23505" || /duplicate key|already exists/i.test(blob)) {
+      if (/username|profiles/i.test(blob)) return "That username is taken.";
+      if (/streamers|channel_handle|platform/i.test(blob)) return "That channel is already listed.";
+      return "That's already taken.";
     }
+    if (/not confirmed/i.test(msg)) return "Confirm your email first, then log in.";
+    if (/invalid login/i.test(msg)) return "That email and password didn't match.";
+    if (/password/i.test(msg)) return msg;
+    return msg || "Something went wrong. Try again.";
+  }
 
-    function hasLiked(postId) {
-      return !!getLikedMap()[postId];
+  function emptyBox(message, retryId) {
+    return '<div class="empty">' + escapeHtml(message) +
+      (retryId ? ' <button type="button" class="btn" data-retry="' + retryId + '" style="margin-left:8px">Try again</button>' : "") +
+      "</div>";
+  }
+
+  function avatarHtml(name, url) {
+    if (url) {
+      return '<img class="avatar" alt="" src="' + escapeHtml(url) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'" />' +
+        '<div class="avatar-fallback" style="display:none;background:#2a9a8a">' + escapeHtml(initials(name)) + "</div>";
     }
+    return '<div class="avatar-fallback" style="background:#3d7a24">' + escapeHtml(initials(name)) + "</div>";
+  }
 
-    function toggleLike(postId) {
-      const liked = getLikedMap();
-      const posts = getPosts();
-      const post = posts.find(function (p) { return p.id === postId; });
-      if (!post) return null;
-      if (liked[postId]) {
-        delete liked[postId];
-        post.likes = Math.max(0, (post.likes || 0) - 1);
-      } else {
-        liked[postId] = true;
-        post.likes = (post.likes || 0) + 1;
-      }
-      writeJson(STORAGE_KEYS.likes, liked);
-      savePosts(posts);
-      return { liked: !!liked[postId], likes: post.likes };
+  function authorName(build) {
+    var profile = build.profiles;
+    if (profile && (profile.display_name || profile.username)) {
+      return profile.display_name || profile.username;
     }
+    return "Someone";
+  }
 
-    function getFollowMap() {
-      return readJson(STORAGE_KEYS.follows, {});
+  function platformLabel(value) {
+    return PLATFORM_LABEL[value] || value || "";
+  }
+
+  function timeLabel(value) {
+    return TIME_LABEL[value] || value || "Any time";
+  }
+
+  function typeLabel(value) {
+    var key = String(value || "").toLowerCase();
+    return TYPE_LABEL[key] || value;
+  }
+
+  function channelUrl(platform, handle) {
+    var name = String(handle || "").replace(/^@+/, "");
+    if (platform === "youtube") return "https://www.youtube.com/@" + encodeURIComponent(name);
+    if (platform === "kick") return "https://kick.com/" + encodeURIComponent(name);
+    if (platform === "tiktok") return "https://www.tiktok.com/@" + encodeURIComponent(name);
+    return "https://twitch.tv/" + encodeURIComponent(name);
+  }
+
+  function heartSvg() {
+    return '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 14s-5.5-3.4-7-6.4C0 5.2 1.2 2.8 3.6 2.8c1.5 0 2.5.8 3.2 1.8.7-1 1.7-1.8 3.2-1.8C12.8 2.8 14 5.2 13 7.6 11.5 10.6 8 14 8 14z"/></svg>';
+  }
+
+  function requireAuth(reason) {
+    if (state.session && state.me) return true;
+    if (state.session && !state.me) {
+      showToast("Your profile isn't ready yet. Give it a second and try again.");
+      return false;
     }
+    state.authReason = reason;
+    go("account", "login");
+    return false;
+  }
 
-    function isFollowing(streamerId) {
-      return !!getFollowMap()[streamerId];
+  function syncComposer() {
+    var loggedIn = !!(state.session && state.me);
+    if (els.gate) els.gate.hidden = loggedIn;
+    if (els.form) els.form.hidden = !loggedIn;
+  }
+
+  function renderNav() {
+    els.navAccount.innerHTML = "";
+    if (!state.session) {
+      var login = document.createElement("button");
+      login.type = "button";
+      login.className = "btn btn-primary";
+      login.textContent = "Log in";
+      login.setAttribute("data-account", "login");
+      els.navAccount.appendChild(login);
+      return;
     }
+    var who = document.createElement("span");
+    who.className = "who";
+    who.textContent = (state.me && (state.me.display_name || state.me.username)) || "You";
+    var out = document.createElement("button");
+    out.type = "button";
+    out.className = "btn btn-ghost";
+    out.textContent = "Log out";
+    out.addEventListener("click", function () { logout(); });
+    els.navAccount.appendChild(who);
+    els.navAccount.appendChild(out);
+  }
 
-    function toggleFollow(streamerId) {
-      const follows = getFollowMap();
-      if (follows[streamerId]) delete follows[streamerId];
-      else follows[streamerId] = true;
-      writeJson(STORAGE_KEYS.follows, follows);
-      return !!follows[streamerId];
-    }
+  function showView(view) {
+    state.view = view;
+    document.querySelectorAll(".view").forEach(function (section) {
+      section.classList.toggle("is-active", section.getAttribute("data-view") === view);
+    });
+    document.querySelectorAll("[data-go]").forEach(function (btn) {
+      if (btn.getAttribute("data-go") === view) btn.setAttribute("aria-current", "page");
+      else btn.removeAttribute("aria-current");
+    });
+    window.scrollTo(0, 0);
+  }
 
-    function getStreamers() {
-      return STREAMERS.slice();
-    }
-
-    /* Real streamer: ThePhillis. Days and timeSlot are guesses for Phil to confirm.
-       Example streamers below are fictional and only exist so search can be tested. */
-    const STREAMERS = [
-      {
-        id: "thephillis",
-        name: "ThePhillis",
-        handle: "thephillis",
-        platform: "Twitch",
-        url: "https://twitch.tv/thephillis",
-        avatar: "https://static-cdn.jtvnw.net/jtv_user_pictures/f1fa9d85-288d-40d9-9ce9-a8646fe7a57f-profile_image-300x300.png",
-        days: ["Mon", "Tue", "Thu", "Fri", "Sun"],
-        time: "Evenings, UK time",
-        timeSlot: "evening",
-        types: ["Hardcore", "SMP"],
-        bio: "On 17 March 2024 I started my first ever Hardcore Minecraft world. Over 2 years later, it's still alive. Join me for huge projects, close calls and community chaos. Earn Emeralds, unlock redeems and help shape the adventure. One mistake ends it all.",
-        followers: 914,
-        affiliate: true,
-        created: "July 2020",
-        real: true
-      },
-      // EXAMPLE streamer for search testing — not a real person
-      {
-        id: "example-cubiccrafter",
-        name: "CubicCrafter",
-        handle: "cubiccrafter",
-        platform: "YouTube",
-        url: "#",
-        avatar: "",
-        days: ["Sat", "Sun"],
-        time: "Saturday & Sunday afternoons",
-        timeSlot: "afternoon",
-        types: ["Creative"],
-        bio: "Example streamer. Showcase builds, tutorials, and calm creative sessions.",
-        followers: 0,
-        real: false
-      },
-      // EXAMPLE streamer for search testing — not a real person
-      {
-        id: "example-redstonerex",
-        name: "RedstoneRex",
-        handle: "redstonerex",
-        platform: "Twitch",
-        url: "#",
-        avatar: "",
-        days: ["Mon", "Wed", "Fri"],
-        time: "Weeknight evenings",
-        timeSlot: "evening",
-        types: ["Modded"],
-        bio: "Example streamer. Modded tech packs, farms, and very questionable contraptions.",
-        followers: 0,
-        real: false
-      },
-      // EXAMPLE streamer for search testing — not a real person
-      {
-        id: "example-smpsage",
-        name: "SmpSage",
-        handle: "smpsage",
-        platform: "Kick",
-        url: "#",
-        avatar: "",
-        days: ["Fri", "Sat"],
-        time: "Late nights",
-        timeSlot: "night",
-        types: ["SMP", "Minigames"],
-        bio: "Example streamer. Weekend SMP nights and the occasional minigame lobby.",
-        followers: 0,
-        real: false
-      }
-    ];
-
-    /* =====================================================================
-       UI
-       ===================================================================== */
-    const els = {
-      views: document.querySelectorAll(".view"),
-      navBtns: document.querySelectorAll("[data-go]"),
-      feed: document.getElementById("feed"),
-      form: document.getElementById("new-post-form"),
-      error: document.getElementById("post-error"),
-      imageInput: document.getElementById("post-images"),
-      previews: document.getElementById("image-previews"),
-      filters: document.getElementById("streamer-filters"),
-      streamerResults: document.getElementById("streamer-results"),
-      profileRoot: document.getElementById("profile-root"),
-      toast: document.getElementById("toast")
-    };
-
-    let pendingImages = [];
-    let activeProfileId = "thephillis";
-    let toastTimer = null;
-
-    function showToast(msg) {
-      els.toast.textContent = msg;
-      els.toast.classList.add("show");
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 2200);
-    }
-
-    function escapeHtml(str) {
-      return String(str == null ? "" : str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-
-    function formatDate(iso) {
-      try {
-        return new Date(iso).toLocaleDateString("en-GB", {
-          day: "numeric", month: "short", year: "numeric"
-        });
-      } catch (e) {
-        return "";
-      }
-    }
-
-    function todayLabel() {
-      return new Date().toLocaleDateString("en-GB", {
-        weekday: "short", day: "numeric", month: "short", year: "numeric"
-      });
-    }
-
-    function go(view, profileId) {
-      if (profileId) activeProfileId = profileId;
-      if (view === "profile" && !activeProfileId) activeProfileId = "thephillis";
-      els.views.forEach(function (v) {
-        v.classList.toggle("is-active", v.getAttribute("data-view") === view);
-      });
-      document.querySelectorAll("[data-go]").forEach(function (btn) {
-        if (btn.getAttribute("data-go") === view) btn.setAttribute("aria-current", "page");
-        else btn.removeAttribute("aria-current");
-      });
-      if (view === "profile") renderProfile();
-      if (view === "streamers") renderStreamers();
-      if (history.replaceState) history.replaceState(null, "", "#" + view);
-      window.scrollTo(0, 0);
-    }
-
-    function getPinnedPost(posts) {
-      if (!posts.length) return null;
-      return posts.reduce(function (best, p) {
-        if (!best) return p;
-        if ((p.likes || 0) > (best.likes || 0)) return p;
-        if ((p.likes || 0) === (best.likes || 0) && p.createdAt > best.createdAt) return p;
-        return best;
-      }, null);
-    }
-
-    function renderImagePreviews() {
-      const countHint = document.getElementById("image-count");
-      if (countHint) {
-        const n = pendingImages.length;
-        countHint.textContent = n === 0 ? "No images selected" : (n === 1 ? "1 image selected" : n + " images selected");
-      }
-      els.previews.innerHTML = "";
-      for (let i = 0; i < 3; i++) {
-        const slot = document.createElement("div");
-        slot.className = "image-slot";
-        if (pendingImages[i]) {
-          const img = document.createElement("img");
-          img.alt = "Preview " + (i + 1);
-          img.src = pendingImages[i];
-          const rm = document.createElement("button");
-          rm.type = "button";
-          rm.className = "remove-img";
-          rm.setAttribute("aria-label", "Remove image " + (i + 1));
-          rm.textContent = "×";
-          rm.addEventListener("click", function () {
-            pendingImages.splice(i, 1);
-            renderImagePreviews();
-          });
-          slot.appendChild(img);
-          slot.appendChild(rm);
-        } else {
-          slot.textContent = "Empty slot";
-        }
-        els.previews.appendChild(slot);
-      }
-    }
-
-    function readFiles(fileList) {
-      const files = Array.prototype.slice.call(fileList || [], 0).filter(function (f) {
-        return f.type && f.type.indexOf("image/") === 0;
-      });
-      const room = 3 - pendingImages.length;
-      if (files.length > room) {
-        els.error.textContent = "You can attach up to 3 images. Extra files were skipped.";
-      } else {
-        els.error.textContent = "";
-      }
-      files.slice(0, Math.max(0, room)).forEach(function (file) {
-        const reader = new FileReader();
-        reader.onload = function () {
-          resizeImage(reader.result, 1280, 0.82, function (dataUrl) {
-            if (pendingImages.length < 3) {
-              pendingImages.push(dataUrl);
-              renderImagePreviews();
-            }
-          });
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function resizeImage(src, maxWidth, quality, cb) {
-      const img = new Image();
-      img.onload = function () {
-        let w = img.width;
-        let h = img.height;
-        if (w > maxWidth) {
-          h = Math.round(h * (maxWidth / w));
-          w = maxWidth;
-        }
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, w, h);
-          cb(canvas.toDataURL("image/jpeg", quality));
-        } catch (e) {
-          cb(src);
-        }
-      };
-      img.onerror = function () { cb(src); };
-      img.src = src;
-    }
-
-    function postCard(post, pinned) {
-      const article = document.createElement("article");
-      article.className = "card post" + (pinned ? " pinned" : "");
-      article.dataset.postId = post.id;
-
-      const imagesHtml = (post.images && post.images.length)
-        ? '<div class="post-images count-' + post.images.length + '">' +
-            post.images.map(function (src, i) {
-              return '<div class="shot"><img alt="" src="' + src + '" /></div>';
-            }).join("") +
-          "</div>"
-        : "";
-
-      const tagsHtml = (post.tags || []).map(function (t) {
-        return '<span class="tag">#' + escapeHtml(t) + "</span>";
-      }).join("");
-
-      article.innerHTML =
-        (pinned ? '<div class="pin-banner"><span>Today\'s most liked</span><span>' + escapeHtml(todayLabel()) + "</span></div>" : "") +
-        imagesHtml +
-        '<div class="post-body">' +
-          '<div class="post-meta"><span>' + escapeHtml(post.author || "Someone") + "</span><span>" + escapeHtml(formatDate(post.createdAt)) + (post.version ? ' · <span class="ver-chip">' + escapeHtml(post.version) + "</span>" : "") + "</span></div>" +
-          "<h3>" + escapeHtml(post.title) + "</h3>" +
-          (post.description ? '<p class="desc">' + escapeHtml(post.description) + "</p>" : "") +
-          (tagsHtml ? '<div class="tags">' + tagsHtml + "</div>" : "") +
-        "</div>" +
-        '<div class="post-actions"></div>';
-
-      const like = document.createElement("button");
-      like.type = "button";
-      like.className = "like-btn";
-      like.setAttribute("aria-pressed", hasLiked(post.id) ? "true" : "false");
-      like.innerHTML = heartSvg() + '<span class="like-count">' + (post.likes || 0) + "</span>";
-      like.addEventListener("click", function () {
-        const result = toggleLike(post.id);
-        if (!result) return;
-        like.setAttribute("aria-pressed", result.liked ? "true" : "false");
-        like.querySelector(".like-count").textContent = result.likes;
-        renderFeed();
-      });
-      article.querySelector(".post-actions").appendChild(like);
-      return article;
-    }
-
-    function heartSvg() {
-      return '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 14s-5.5-3.4-7-6.4C0 5.2 1.2 2.8 3.6 2.8c1.5 0 2.5.8 3.2 1.8.7-1 1.7-1.8 3.2-1.8C12.8 2.8 14 5.2 13 7.6 11.5 10.6 8 14 8 14z"/></svg>';
-    }
-
-    function renderFeed() {
-      const posts = getPosts();
-      els.feed.innerHTML = "";
-      if (!posts.length) {
-        els.feed.innerHTML = '<div class="empty">No builds yet. Share the first one above.</div>';
+  function go(view, extra) {
+    if (view === "profile") {
+      state.profileId = extra || (state.session ? state.session.user.id : null);
+      if (!state.profileId) {
+        state.authReason = state.authReason || "Log in to see your profile.";
+        go("account", "login");
         return;
       }
-      const pinned = getPinnedPost(posts);
-      if (pinned) els.feed.appendChild(postCard(pinned, true));
-      posts.forEach(function (p) {
-        if (pinned && p.id === pinned.id) return;
-        els.feed.appendChild(postCard(p, false));
-      });
     }
-
-    function initials(name) {
-      return (name || "?")
-        .split(/\s+/)
-        .map(function (w) { return w.charAt(0); })
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-    }
-
-    function avatarHtml(s, className) {
-      if (s.avatar) {
-        return '<img class="avatar" alt="" src="' + escapeHtml(s.avatar) + '" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'" />' +
-          '<div class="avatar-fallback" style="display:none;background:#2a9a8a">' + escapeHtml(initials(s.name)) + "</div>";
-      }
-      const colors = { "example-cubiccrafter": "#3d7a24", "example-redstonerex": "#b53c30", "example-smpsage": "#2a9a8a" };
-      const bg = colors[s.id] || "#4a5544";
-      return '<div class="avatar-fallback" style="background:' + bg + '">' + escapeHtml(initials(s.name)) + "</div>";
-    }
-
-    function daysLabel(days) {
-      return (days || []).join(" · ");
-    }
-
-    function filterStreamers() {
-      const name = (document.getElementById("filter-name").value || "").trim().toLowerCase();
-      const platform = document.getElementById("filter-platform").value;
-      const day = document.getElementById("filter-day").value;
-      const time = document.getElementById("filter-time").value;
-      const type = document.getElementById("filter-type").value;
-      return getStreamers().filter(function (s) {
-        if (name && s.name.toLowerCase().indexOf(name) === -1 && s.handle.toLowerCase().indexOf(name) === -1) return false;
-        if (platform && s.platform !== platform) return false;
-        if (day && (s.days || []).indexOf(day) === -1) return false;
-        if (time && s.timeSlot !== time) return false;
-        if (type && (s.types || []).indexOf(type) === -1) return false;
-        return true;
-      });
-    }
-
-    function renderStreamers() {
-      const list = filterStreamers();
-      els.streamerResults.innerHTML = "";
-      if (!list.length) {
-        els.streamerResults.innerHTML = '<div class="empty" style="grid-column:1/-1">No streamers match every filter. Clear a filter and try again.</div>';
+    if (view === "account") {
+      var mode = extra || "login";
+      if (state.session && (mode === "login" || mode === "signup")) {
+        go("builds");
         return;
       }
-      list.forEach(function (s) {
-        const card = document.createElement("article");
-        card.className = "card streamer-card";
-        card.innerHTML =
-          '<div class="streamer-top">' + avatarHtml(s) +
-            "<div><h3>" + escapeHtml(s.name) + "</h3>" +
-            '<span class="platform ' + escapeHtml(s.platform.toLowerCase()) + '">' + escapeHtml(s.platform) + "</span></div></div>" +
-          '<p class="bio">' + escapeHtml(s.bio) + "</p>" +
-          '<div class="meta-list">' +
-            "<div><strong>Days</strong> " + escapeHtml(daysLabel(s.days)) + "</div>" +
-            "<div><strong>Time</strong> " + escapeHtml(s.time) + "</div>" +
-            "<div><strong>Type</strong> " + escapeHtml((s.types || []).join(", ")) + "</div>" +
-          "</div>" +
-          '<div class="card-actions"></div>';
-        const viewBtn = document.createElement("button");
-        viewBtn.type = "button";
-        viewBtn.className = "btn";
-        viewBtn.textContent = "View profile";
-        viewBtn.addEventListener("click", function () { go("profile", s.id); });
-        card.querySelector(".card-actions").appendChild(viewBtn);
-        if (s.url && s.url !== "#") {
-          const link = document.createElement("a");
-          link.className = "btn btn-ghost";
-          link.href = s.url;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = "Watch";
-          card.querySelector(".card-actions").appendChild(link);
-        }
-        els.streamerResults.appendChild(card);
-      });
+      state.accountMode = mode;
     }
 
-    function followButton(streamerId) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn btn-primary btn-follow";
-      const following = isFollowing(streamerId);
-      btn.setAttribute("aria-pressed", following ? "true" : "false");
-      btn.textContent = following ? "Following" : "Follow";
-      btn.addEventListener("click", function () {
-        const now = toggleFollow(streamerId);
-        btn.setAttribute("aria-pressed", now ? "true" : "false");
-        btn.textContent = now ? "Following" : "Follow";
-        showToast(now ? "Followed" : "Unfollowed");
-      });
-      return btn;
+    var hash = view;
+    if (view === "profile" && state.profileId && (!state.session || state.profileId !== state.session.user.id)) {
+      hash = "profile/" + state.profileId;
     }
+    if (view === "account" && state.accountMode !== "login") hash = "account/" + state.accountMode;
+    if (history.replaceState) history.replaceState(null, "", "#" + hash);
 
-    function renderProfile() {
-      const s = getStreamers().find(function (x) { return x.id === activeProfileId; }) || getStreamers()[0];
-      if (!s) return;
-      const root = document.createElement("article");
-      root.className = "card profile";
+    showView(view);
+    if (view === "builds") paintFeed();
+    if (view === "streamers") {
+      paintStreamers();
+      paintStreamerSelf(false);
+    }
+    if (view === "profile") renderProfile();
+    if (view === "account") renderAccount();
+  }
+
+  function applyHash() {
+    var raw = (location.hash || "").replace(/^#/, "");
+    if (!raw || raw.indexOf("access_token=") !== -1 || raw.indexOf("error=") === 0) {
+      if (state.accountMode === "reset") go("account", "reset");
+      else go("builds");
+      return;
+    }
+    var parts = raw.split("/");
+    var head = parts[0];
+    if (head === "profile") go("profile", parts[1] || null);
+    else if (head === "account") go("account", parts[1] || "login");
+    else if (head === "streamers" || head === "builds") go(head);
+    else go("builds");
+  }
+
+  function renderAccount() {
+    var mode = state.accountMode || "login";
+    var copy = {
+      login: ["Log in", "Log in to post, like, and follow."],
+      signup: ["Sign up", "Create an account with your email, a password, and a username."],
+      forgot: ["Forgot password", "We'll email you a link to choose a new password."],
+      "check-email": ["Check your email", "Open the message, then come back here."],
+      reset: ["Choose a new password", "Pick a new password for your account."]
+    };
+    var pair = copy[mode] || copy.login;
+    els.accountTitle.textContent = pair[0];
+    els.accountLead.textContent = pair[1];
+    if (state.authReason) {
+      els.authReason.hidden = false;
+      els.authReason.textContent = state.authReason;
+    } else {
+      els.authReason.hidden = true;
+      els.authReason.textContent = "";
+    }
+    document.getElementById("form-login").hidden = mode !== "login";
+    document.getElementById("form-signup").hidden = mode !== "signup";
+    document.getElementById("form-forgot").hidden = mode !== "forgot";
+    document.getElementById("form-reset").hidden = mode !== "reset";
+    var check = document.getElementById("panel-check-email");
+    check.hidden = mode !== "check-email";
+    if (mode === "check-email") {
+      var email = state.pendingEmail ? " (" + state.pendingEmail + ")" : "";
+      document.getElementById("check-email-copy").textContent = state.checkKind === "reset"
+        ? "If an account exists for that email" + email + ", we sent a link to reset the password."
+        : "Check your email" + email + " and confirm your account, then log in.";
+    }
+  }
+
+  async function loadMe() {
+    if (!state.session) {
+      state.me = null;
+      state.liked = {};
+      return;
+    }
+    var res = await db.from("profiles").select("id, username, display_name, avatar_url, bio, created_at").eq("id", state.session.user.id).maybeSingle();
+    state.me = res.data || null;
+    if (!state.me) {
+      await new Promise(function (resolve) { setTimeout(resolve, 500); });
+      res = await db.from("profiles").select("id, username, display_name, avatar_url, bio, created_at").eq("id", state.session.user.id).maybeSingle();
+      state.me = res.data || null;
+    }
+  }
+
+  var buildsToken = 0;
+  async function loadBuilds() {
+    var token = ++buildsToken;
+    var session = state.session;
+    var buildsRes = await db.from("builds").select("id, user_id, title, description, tags, mc_version, image_urls, like_count, created_at, profiles!builds_user_id_fkey(username, display_name, avatar_url)").order("created_at", { ascending: false }).limit(100);
+    if (token !== buildsToken) return;
+    if (buildsRes.error) {
+      state.buildsError = "Couldn't load builds. Check your connection and try again.";
+      state.buildsLoaded = true;
+      paintFeed();
+      return;
+    }
+    var builds = buildsRes.data || [];
+    var pinnedId = null;
+    var pinRes = await db.rpc("get_daily_pinned_build");
+    if (token !== buildsToken) return;
+    if (!pinRes.error && pinRes.data && pinRes.data.length) pinnedId = pinRes.data[0].id;
+    else if (builds.length) {
+      pinnedId = builds.slice().sort(function (a, b) {
+        if ((b.like_count || 0) !== (a.like_count || 0)) return (b.like_count || 0) - (a.like_count || 0);
+        return new Date(b.created_at) - new Date(a.created_at);
+      })[0].id;
+    }
+    var liked = {};
+    if (session) {
+      var likesRes = await db.from("likes").select("build_id").eq("user_id", session.user.id);
+      if (token !== buildsToken) return;
+      (likesRes.data || []).forEach(function (row) { liked[row.build_id] = true; });
+    }
+    state.buildsError = "";
+    state.builds = builds;
+    state.pinnedId = pinnedId;
+    state.liked = liked;
+    state.buildsLoaded = true;
+    paintFeed();
+    if (state.view === "profile") renderProfile();
+  }
+
+  async function loadStreamers() {
+    var res = await db.from("streamers").select("*").order("display_name");
+    if (res.error) {
+      state.streamersError = "Couldn't load streamers. Check your connection and try again.";
+      state.streamers = [];
+    } else {
+      state.streamersError = "";
+      state.streamers = res.data || [];
+    }
+    state.myStreamer = null;
+    if (state.session) {
+      state.myStreamer = state.streamers.filter(function (row) {
+        return row.profile_id === state.session.user.id;
+      })[0] || null;
+    }
+    state.streamersLoaded = true;
+    paintStreamers();
+    paintStreamerSelf(false);
+  }
+
+  function filteredStreamers() {
+    var name = (document.getElementById("filter-name").value || "").trim().toLowerCase();
+    var platform = document.getElementById("filter-platform").value;
+    var day = document.getElementById("filter-day").value;
+    var time = document.getElementById("filter-time").value;
+    var type = document.getElementById("filter-type").value;
+    return state.streamers.filter(function (row) {
+      var display = (row.display_name || "").toLowerCase();
+      var handle = (row.channel_handle || "").toLowerCase();
+      if (name && display.indexOf(name) === -1 && handle.indexOf(name) === -1) return false;
+      if (platform && row.platform !== platform) return false;
+      if (day && (row.days || []).indexOf(day) === -1) return false;
+      if (time && row.time_of_day !== time) return false;
+      if (type && (row.mc_types || []).map(function (item) { return String(item).toLowerCase(); }).indexOf(type) === -1) return false;
+      return true;
+    });
+  }
+
+  function paintStreamers() {
+    if (!state.streamersLoaded) {
+      els.streamerResults.innerHTML = emptyBox("Loading streamers…");
+      return;
+    }
+    if (state.streamersError) {
+      els.streamerResults.innerHTML = emptyBox(state.streamersError, "streamers");
+      return;
+    }
+    var list = filteredStreamers();
+    els.streamerResults.innerHTML = "";
+    if (!state.streamers.length) {
+      els.streamerResults.innerHTML = emptyBox("No streamers yet. Signed-in members can add themselves.");
+      return;
+    }
+    if (!list.length) {
+      els.streamerResults.innerHTML = emptyBox("No streamers match every filter. Clear a filter and try again.");
+      return;
+    }
+    list.forEach(function (row) { els.streamerResults.appendChild(streamerCard(row)); });
+  }
+
+  function streamerCard(row) {
+    var card = document.createElement("article");
+    card.className = "card streamer-card";
+    var name = row.display_name || row.channel_handle;
+    var types = (row.mc_types || []).map(typeLabel).join(", ");
+    card.innerHTML =
+      '<div class="streamer-top">' + avatarHtml(name, row.avatar_url) +
+        "<div><h3>" + escapeHtml(name) + "</h3>" +
+        '<span class="platform ' + escapeHtml(row.platform) + '">' + escapeHtml(platformLabel(row.platform)) + "</span>" +
+        (row.verified ? ' <span class="verified">Verified</span>' : "") +
+        "</div></div>" +
+      (row.bio ? '<p class="bio">' + escapeHtml(row.bio) + "</p>" : "") +
+      '<div class="meta-list">' +
+        "<div><strong>Days</strong> " + escapeHtml((row.days || []).join(" · ") || "Not set") + "</div>" +
+        "<div><strong>Time</strong> " + escapeHtml(timeLabel(row.time_of_day)) + "</div>" +
+        "<div><strong>Type</strong> " + escapeHtml(types || "Not set") + "</div>" +
+      "</div>" +
+      '<div class="card-actions"></div>';
+    var actions = card.querySelector(".card-actions");
+    if (row.profile_id) {
+      var viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.className = "btn";
+      viewBtn.textContent = "View profile";
+      viewBtn.setAttribute("data-profile", row.profile_id);
+      actions.appendChild(viewBtn);
+    }
+    if (row.channel_url) {
+      var link = document.createElement("a");
+      link.className = "btn btn-ghost";
+      link.href = row.channel_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Watch";
+      actions.appendChild(link);
+    }
+    return card;
+  }
+
+  function choiceBoxes(name, values, selected, labelFn) {
+    return values.map(function (value) {
+      var on = selected.indexOf(value) !== -1;
+      return '<label class="choice"><input type="checkbox" name="' + name + '" value="' + escapeHtml(value) + '"' +
+        (on ? " checked" : "") + "> " + escapeHtml(labelFn(value)) + "</label>";
+    }).join("");
+  }
+
+  function paintStreamerSelf(force) {
+    var root = els.streamerSelf;
+    if (!force && root.contains(document.activeElement)) return;
+    if (!state.streamersLoaded) {
+      root.innerHTML = "";
+      return;
+    }
+    if (!state.session) {
       root.innerHTML =
-        '<div class="profile-banner"></div>' +
-        '<div class="profile-main">' +
-          '<div class="profile-head">' + avatarHtml(s) +
-            "<div><h2>" + escapeHtml(s.name) + "</h2>" +
-            '<span class="platform ' + escapeHtml(s.platform.toLowerCase()) + '">' + escapeHtml(s.platform) + "</span>" +
-            (s.handle ? '<div style="color:var(--ink-mute);font-size:.9rem;margin-top:4px">@' + escapeHtml(s.handle) + "</div>" : "") +
+        '<div class="card self-card"><h2>List yourself</h2>' +
+        "<p>Log in to add your channel. Visitors can still browse everyone who is listed.</p>" +
+        '<button type="button" class="btn btn-primary" data-account="signup">Sign up</button> ' +
+        '<button type="button" class="btn" data-account="login">Log in</button></div>';
+      return;
+    }
+    var mine = state.myStreamer;
+    var days = mine && mine.days ? mine.days : [];
+    var types = mine && mine.mc_types ? mine.mc_types.map(function (item) { return String(item).toLowerCase(); }) : [];
+    var time = mine && mine.time_of_day ? mine.time_of_day : "";
+    var platform = mine && mine.platform ? mine.platform : "twitch";
+    var handle = mine && mine.channel_handle ? mine.channel_handle : "";
+    root.innerHTML =
+      '<form id="self-form" class="card self-card" autocomplete="off">' +
+        "<h2>" + (mine ? "Your streamer listing" : "List yourself") + "</h2>" +
+        "<p>" + (mine ? "Update the channel linked to your profile, or remove it." : "Add your channel. It is linked to your profile, and only you can edit it.") + "</p>" +
+        '<div class="form-grid">' +
+          '<div class="field"><label for="self-platform">Platform</label>' +
+            '<select id="self-platform" name="stream-platform">' +
+              optionList(["twitch", "youtube", "kick", "tiktok"], platform, platformLabel) +
+            "</select></div>" +
+          '<div class="field"><label for="self-handle">Channel handle</label>' +
+            '<input id="self-handle" name="channel-handle" autocomplete="off" maxlength="80" required value="' + escapeHtml(handle) + '" placeholder="thephillis" /></div>' +
+          '<div class="field span-2"><label>Days</label><div class="choice-grid">' +
+            choiceBoxes("self-day", DAYS, days, function (day) { return day; }) +
           "</div></div>" +
-          '<div class="profile-stats">' +
-            (typeof s.followers === "number" && s.real ? "<span><strong>" + s.followers.toLocaleString("en-GB") + "</strong> followers</span>" : "") +
-            (s.affiliate ? "<span>Twitch Affiliate</span>" : "") +
-            (s.created ? "<span>Joined " + escapeHtml(s.created) + "</span>" : "") +
-            "<span>" + escapeHtml(daysLabel(s.days)) + "</span>" +
-            "<span>" + escapeHtml(s.time) + "</span>" +
-            "<span>" + escapeHtml((s.types || []).join(" · ")) + "</span>" +
-          "</div>" +
-          '<p class="bio">' + escapeHtml(s.bio) + "</p>" +
-          '<div class="card-actions" style="margin-top:16px"></div>' +
-        "</div>";
-      const actions = root.querySelector(".card-actions");
-      actions.appendChild(followButton(s.id));
-      if (s.url && s.url !== "#") {
-        const link = document.createElement("a");
+          '<div class="field"><label for="self-time">Time of day</label>' +
+            '<select id="self-time" name="stream-time"><option value="">Not set</option>' +
+              optionList(["morning", "afternoon", "evening", "late night"], time, timeLabel) +
+            "</select></div>" +
+          '<div class="field span-2"><label>Minecraft types</label><div class="choice-grid">' +
+            choiceBoxes("self-type", TYPES, types, typeLabel) +
+          "</div></div>" +
+        "</div>" +
+        '<p class="form-error" id="self-error" role="alert"></p>' +
+        '<div class="form-actions">' +
+          '<button class="btn btn-primary" type="submit">' + (mine ? "Save listing" : "Add me") + "</button>" +
+          (mine ? '<button class="btn btn-ghost" type="button" id="self-remove">Remove listing</button>' : "") +
+        "</div>" +
+      "</form>";
+    document.getElementById("self-form").addEventListener("submit", saveStreamer);
+    var remove = document.getElementById("self-remove");
+    if (remove) remove.addEventListener("click", removeStreamer);
+  }
+
+  function optionList(values, selected, labelFn) {
+    return values.map(function (value) {
+      return '<option value="' + escapeHtml(value) + '"' + (value === selected ? " selected" : "") + ">" +
+        escapeHtml(labelFn(value)) + "</option>";
+    }).join("");
+  }
+
+  function checkedValues(form, name) {
+    return Array.prototype.map.call(form.querySelectorAll('input[name="' + name + '"]:checked'), function (input) {
+      return input.value;
+    });
+  }
+
+  async function saveStreamer(event) {
+    event.preventDefault();
+    if (!requireAuth("Log in to list yourself as a streamer.")) return;
+    var form = event.target;
+    var error = document.getElementById("self-error");
+    var handle = document.getElementById("self-handle").value.replace(/^@+/, "").trim();
+    var platform = document.getElementById("self-platform").value;
+    var time = document.getElementById("self-time").value || null;
+    if (!handle) {
+      error.textContent = "Add your channel handle.";
+      return;
+    }
+    var payload = {
+      display_name: (state.me.display_name || state.me.username || handle).trim(),
+      platform: platform,
+      channel_handle: handle,
+      channel_url: channelUrl(platform, handle),
+      avatar_url: state.me.avatar_url || null,
+      bio: state.me.bio || null,
+      days: checkedValues(form, "self-day"),
+      time_of_day: time,
+      mc_types: checkedValues(form, "self-type")
+    };
+    var button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    var result;
+    if (state.myStreamer) {
+      result = await db.from("streamers").update(payload).eq("id", state.myStreamer.id).eq("profile_id", state.session.user.id);
+    } else {
+      payload.profile_id = state.session.user.id;
+      result = await db.from("streamers").insert(payload);
+    }
+    button.disabled = false;
+    if (result.error) {
+      error.textContent = friendlyError(result.error);
+      return;
+    }
+    showToast(state.myStreamer ? "Listing saved" : "You're on the list");
+    await loadStreamers();
+    paintStreamerSelf(true);
+  }
+
+  async function removeStreamer() {
+    if (!state.myStreamer) return;
+    if (!window.confirm("Remove your streamer listing?")) return;
+    var result = await db.from("streamers").delete().eq("id", state.myStreamer.id).eq("profile_id", state.session.user.id);
+    if (result.error) {
+      showToast(friendlyError(result.error));
+      return;
+    }
+    showToast("Listing removed");
+    await loadStreamers();
+    paintStreamerSelf(true);
+  }
+
+  function postCard(build, pinned, opts) {
+    opts = opts || {};
+    var article = document.createElement("article");
+    article.className = "card post" + (pinned ? " pinned" : "");
+    var images = build.image_urls || [];
+    var imagesHtml = images.length
+      ? '<div class="post-images count-' + images.length + '">' + images.map(function (src) {
+          return '<div class="shot"><img alt="" src="' + escapeHtml(src) + '" /></div>';
+        }).join("") + "</div>"
+      : "";
+    var tagsHtml = (build.tags || []).map(function (tag) {
+      return '<span class="tag">#' + escapeHtml(tag) + "</span>";
+    }).join("");
+    var name = opts.authorName || authorName(build);
+    var authorId = opts.authorId || build.user_id;
+    var authorHtml = authorId
+      ? '<button type="button" class="author-link" data-profile="' + escapeHtml(authorId) + '">' + escapeHtml(name) + "</button>"
+      : escapeHtml(name);
+    article.innerHTML =
+      (pinned ? '<div class="pin-banner"><span>Today\'s most liked</span><span>' + escapeHtml(todayLabel()) + "</span></div>" : "") +
+      imagesHtml +
+      '<div class="post-body">' +
+        '<div class="post-meta"><span>' + authorHtml + "</span><span>" + escapeHtml(formatDate(build.created_at)) +
+          (build.mc_version ? ' · <span class="ver-chip">' + escapeHtml(build.mc_version) + "</span>" : "") +
+        "</span></div>" +
+        "<h3>" + escapeHtml(build.title) + "</h3>" +
+        (build.description ? '<p class="desc">' + escapeHtml(build.description) + "</p>" : "") +
+        (tagsHtml ? '<div class="tags">' + tagsHtml + "</div>" : "") +
+      "</div>" +
+      '<div class="post-actions"></div>';
+    var actions = article.querySelector(".post-actions");
+    var like = document.createElement("button");
+    like.type = "button";
+    like.className = "like-btn";
+    like.setAttribute("aria-pressed", state.liked[build.id] ? "true" : "false");
+    like.innerHTML = heartSvg() + '<span class="like-count">' + (build.like_count || 0) + "</span>";
+    like.addEventListener("click", function () { toggleLike(build.id); });
+    actions.appendChild(like);
+    if (opts.allowDelete) {
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "btn btn-ghost";
+      del.textContent = "Delete";
+      del.addEventListener("click", function () { deleteBuild(build); });
+      actions.appendChild(del);
+    }
+    return article;
+  }
+
+  function paintFeed() {
+    if (!state.buildsLoaded) {
+      els.feed.innerHTML = emptyBox("Loading builds…");
+      return;
+    }
+    if (state.buildsError) {
+      els.feed.innerHTML = emptyBox(state.buildsError, "builds");
+      return;
+    }
+    els.feed.innerHTML = "";
+    if (!state.builds.length) {
+      els.feed.innerHTML = emptyBox("No builds yet. When someone shares a creation, it will show up here.");
+      return;
+    }
+    var pinned = state.builds.filter(function (build) { return build.id === state.pinnedId; })[0] || null;
+    if (pinned) els.feed.appendChild(postCard(pinned, true));
+    state.builds.forEach(function (build) {
+      if (pinned && build.id === pinned.id) return;
+      els.feed.appendChild(postCard(build, false));
+    });
+  }
+
+  async function toggleLike(buildId) {
+    if (!requireAuth("Log in to like a build.")) return;
+    if (likeBusy[buildId]) return;
+    likeBusy[buildId] = true;
+    var result;
+    if (state.liked[buildId]) {
+      result = await db.from("likes").delete().eq("user_id", state.session.user.id).eq("build_id", buildId);
+    } else {
+      result = await db.from("likes").insert({ user_id: state.session.user.id, build_id: buildId });
+    }
+    likeBusy[buildId] = false;
+    if (result.error) {
+      showToast(friendlyError(result.error));
+      return;
+    }
+    await loadBuilds();
+  }
+
+  function storagePath(url) {
+    var marker = "/build-images/";
+    var index = String(url || "").indexOf(marker);
+    if (index === -1) return null;
+    return decodeURIComponent(String(url).slice(index + marker.length).split("?")[0]);
+  }
+
+  async function deleteBuild(build) {
+    if (!state.session || build.user_id !== state.session.user.id) return;
+    if (!window.confirm("Delete this build?")) return;
+    var paths = (build.image_urls || []).map(storagePath).filter(Boolean);
+    if (paths.length) await db.storage.from("build-images").remove(paths);
+    var result = await db.from("builds").delete().eq("id", build.id);
+    if (result.error) {
+      showToast(friendlyError(result.error));
+      return;
+    }
+    showToast("Build deleted");
+    await loadBuilds();
+  }
+
+  function renderImagePreviews() {
+    var countHint = document.getElementById("image-count");
+    var count = pendingImages.length;
+    countHint.textContent = count === 0 ? "No images selected" : (count === 1 ? "1 image selected" : count + " images selected");
+    els.previews.innerHTML = "";
+    for (var i = 0; i < 3; i++) {
+      var slot = document.createElement("div");
+      slot.className = "image-slot";
+      if (pendingImages[i]) {
+        var img = document.createElement("img");
+        img.alt = "Preview " + (i + 1);
+        img.src = pendingImages[i];
+        var remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "remove-img";
+        remove.setAttribute("aria-label", "Remove image " + (i + 1));
+        remove.textContent = "×";
+        remove.addEventListener("click", (function (index) {
+          return function () {
+            pendingImages.splice(index, 1);
+            renderImagePreviews();
+          };
+        })(i));
+        slot.appendChild(img);
+        slot.appendChild(remove);
+      } else {
+        slot.textContent = "Empty slot";
+      }
+      els.previews.appendChild(slot);
+    }
+  }
+
+  function resizeImage(src, maxWidth, quality, cb) {
+    var img = new Image();
+    img.onload = function () {
+      var w = img.width;
+      var h = img.height;
+      if (w > maxWidth) {
+        h = Math.round(h * (maxWidth / w));
+        w = maxWidth;
+      }
+      try {
+        var canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        cb(canvas.toDataURL("image/jpeg", quality));
+      } catch (err) {
+        cb(null);
+      }
+    };
+    img.onerror = function () { cb(null); };
+    img.src = src;
+  }
+
+  function readFiles(fileList) {
+    var files = Array.prototype.filter.call(fileList || [], function (file) {
+      return file.type && file.type.indexOf("image/") === 0;
+    });
+    var room = 3 - pendingImages.length;
+    if (!files.length) return;
+    if (files.length > room) els.error.textContent = "You can attach up to 3 images. Extra files were skipped.";
+    else els.error.textContent = "";
+    files.slice(0, Math.max(0, room)).forEach(function (file) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        resizeImage(reader.result, 1280, 0.82, function (dataUrl) {
+          if (!dataUrl) {
+            els.error.textContent = "That image couldn't be prepared. Try a JPG or PNG.";
+            return;
+          }
+          if (pendingImages.length < 3) {
+            pendingImages.push(dataUrl);
+            renderImagePreviews();
+          }
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    var parts = dataUrl.split(",");
+    var mime = (parts[0].match(/data:(.*?);/) || [])[1] || "image/jpeg";
+    var binary = atob(parts[1]);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function uploadImage(dataUrl, folderName) {
+    var blob = dataUrlToBlob(dataUrl);
+    if (blob.size > 5 * 1024 * 1024) throw new Error("Each image needs to be under 5 MB.");
+    var path = state.session.user.id + "/" + folderName;
+    var result = await db.storage.from("build-images").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+    if (result.error) throw result.error;
+    return {
+      path: path,
+      url: db.storage.from("build-images").getPublicUrl(path).data.publicUrl
+    };
+  }
+
+  async function shareBuild(event) {
+    event.preventDefault();
+    if (!requireAuth("Log in to share a build.")) return;
+    var title = document.getElementById("post-title").value.trim();
+    if (!title) {
+      els.error.textContent = "Please add a title.";
+      return;
+    }
+    if (pendingImages.length > 3) {
+      els.error.textContent = "You can attach up to 3 images.";
+      return;
+    }
+    var tags = document.getElementById("post-tags").value.split(",").map(function (tag) {
+      return tag.trim().slice(0, 24);
+    }).filter(Boolean).slice(0, 12);
+    var version = document.getElementById("post-version").value.trim();
+    var description = document.getElementById("post-desc").value.trim();
+    var button = els.form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    button.textContent = "Sharing…";
+    var uploaded = [];
+    try {
+      for (var i = 0; i < pendingImages.length; i++) {
+        uploaded.push(await uploadImage(pendingImages[i], crypto.randomUUID() + ".jpg"));
+      }
+      var inserted = await db.from("builds").insert({
+        user_id: state.session.user.id,
+        title: title,
+        description: description || null,
+        tags: tags,
+        mc_version: version || null,
+        image_urls: uploaded.map(function (file) { return file.url; })
+      }).select("id").single();
+      if (inserted.error) throw inserted.error;
+      els.form.reset();
+      pendingImages = [];
+      renderImagePreviews();
+      els.error.textContent = "";
+      showToast("Build posted");
+      await loadBuilds();
+    } catch (err) {
+      if (uploaded.length) {
+        await db.storage.from("build-images").remove(uploaded.map(function (file) { return file.path; }));
+      }
+      els.error.textContent = friendlyError(err);
+    } finally {
+      button.disabled = false;
+      button.textContent = "Share build";
+    }
+  }
+
+  async function renderProfile() {
+    var token = ++profileToken;
+    var id = state.profileId;
+    if (!id) {
+      els.profileRoot.innerHTML = emptyBox("Log in to see your profile.");
+      return;
+    }
+    els.profileRoot.innerHTML = emptyBox("Loading profile…");
+    var profileRes = await db.from("profiles").select("id, username, display_name, avatar_url, bio, created_at").eq("id", id).maybeSingle();
+    if (token !== profileToken) return;
+    if (profileRes.error || !profileRes.data) {
+      els.profileRoot.innerHTML = emptyBox("That profile isn't here.");
+      return;
+    }
+    var profile = profileRes.data;
+    var isSelf = !!(state.session && state.session.user.id === profile.id);
+    var followerRes = await db.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id);
+    var followingRes = await db.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id);
+    var buildsRes = await db.from("builds").select("*").eq("user_id", profile.id).order("created_at", { ascending: false });
+    var streamerRes = await db.from("streamers").select("*").eq("profile_id", profile.id).maybeSingle();
+    if (token !== profileToken) return;
+    var following = false;
+    if (state.session && !isSelf) {
+      var followRes = await db.from("follows").select("follower_id").eq("follower_id", state.session.user.id).eq("following_id", profile.id).maybeSingle();
+      following = !!followRes.data;
+    }
+    if (token !== profileToken) return;
+    var name = profile.display_name || profile.username;
+    var streamer = streamerRes.data;
+    var card = document.createElement("article");
+    card.className = "card profile";
+    card.innerHTML =
+      '<div class="profile-banner"></div>' +
+      '<div class="profile-main">' +
+        '<div class="profile-head">' + avatarHtml(name, profile.avatar_url) +
+          "<div><h2>" + escapeHtml(name) + "</h2>" +
+          '<div style="color:var(--ink-mute);font-size:.9rem;margin-top:4px">@' + escapeHtml(profile.username) + "</div>" +
+          (streamer ? '<div style="margin-top:6px"><span class="platform ' + escapeHtml(streamer.platform) + '">' + escapeHtml(platformLabel(streamer.platform)) + "</span></div>" : "") +
+        "</div></div>" +
+        '<div class="profile-stats">' +
+          "<span><strong>" + (followerRes.count || 0) + "</strong> followers</span>" +
+          "<span><strong>" + (followingRes.count || 0) + "</strong> following</span>" +
+          "<span>Joined " + escapeHtml(formatDate(profile.created_at)) + "</span>" +
+        "</div>" +
+        (profile.bio ? '<p class="bio">' + escapeHtml(profile.bio) + "</p>" : '<p class="bio">No bio yet.</p>') +
+        '<div class="card-actions" id="profile-actions" style="margin-top:16px"></div>' +
+        (isSelf ? profileEditor(profile) : "") +
+      "</div>";
+    els.profileRoot.innerHTML = "";
+    els.profileRoot.appendChild(card);
+    var actions = document.getElementById("profile-actions");
+    if (isSelf) {
+      actions.innerHTML = '<span class="hint">This is your profile.</span>';
+      document.getElementById("profile-form").addEventListener("submit", saveProfile);
+    } else {
+      var follow = document.createElement("button");
+      follow.type = "button";
+      follow.className = "btn btn-primary btn-follow";
+      follow.setAttribute("aria-pressed", following ? "true" : "false");
+      follow.textContent = following ? "Following" : "Follow";
+      follow.addEventListener("click", function () { toggleFollow(profile.id, follow); });
+      actions.appendChild(follow);
+      if (streamer && streamer.channel_url) {
+        var link = document.createElement("a");
         link.className = "btn btn-ghost";
-        link.href = s.url;
+        link.href = streamer.channel_url;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.textContent = "Open channel";
         actions.appendChild(link);
       }
-      els.profileRoot.innerHTML = "";
-      els.profileRoot.appendChild(root);
     }
-
-    /* Events */
-    document.querySelectorAll("[data-go]").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
-        if (btn.tagName === "A") e.preventDefault();
-        go(btn.getAttribute("data-go"));
+    els.profileLead.textContent = isSelf
+      ? "Your profile, your builds, and who you follow."
+      : "A BlockBudds profile.";
+    var list = document.createElement("section");
+    list.className = "profile-builds";
+    list.innerHTML = "<h2>Builds</h2>";
+    var builds = buildsRes.data || [];
+    if (!builds.length) {
+      list.insertAdjacentHTML("beforeend", emptyBox(isSelf ? "You haven't shared a build yet." : "No builds yet."));
+    } else {
+      builds.forEach(function (build) {
+        build.profiles = { username: profile.username, display_name: profile.display_name, avatar_url: profile.avatar_url };
+        list.appendChild(postCard(build, false, { allowDelete: isSelf, authorName: name, authorId: profile.id }));
       });
-    });
+    }
+    els.profileRoot.appendChild(list);
+  }
 
-    els.imageInput.addEventListener("change", function () {
-      readFiles(els.imageInput.files);
-      els.imageInput.value = "";
-    });
-    document.getElementById("pick-images").addEventListener("click", function () {
-      els.imageInput.click();
-    });
+  function profileEditor(profile) {
+    return '<form id="profile-form" class="profile-edit" autocomplete="off">' +
+      '<div class="field"><label for="profile-display">Display name</label>' +
+        '<input id="profile-display" name="display-name" autocomplete="off" maxlength="40" value="' + escapeHtml(profile.display_name || "") + '" /></div>' +
+      '<div class="field"><label for="profile-bio">Bio</label>' +
+        '<textarea id="profile-bio" name="bio" autocomplete="off" maxlength="500">' + escapeHtml(profile.bio || "") + "</textarea></div>" +
+      '<div class="field"><label for="profile-avatar">Avatar</label>' +
+        '<input id="profile-avatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" autocomplete="off" />' +
+        '<span class="hint">Optional. A square image works best.</span></div>' +
+      '<p class="form-error" id="profile-error" role="alert"></p>' +
+      '<div class="form-actions"><button class="btn btn-primary" type="submit">Save profile</button></div>' +
+    "</form>";
+  }
 
-    els.form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      const title = document.getElementById("post-title").value.trim();
-      if (!title) {
-        els.error.textContent = "Please add a title.";
-        return;
+  async function saveProfile(event) {
+    event.preventDefault();
+    if (!requireAuth("Log in to edit your profile.")) return;
+    var error = document.getElementById("profile-error");
+    var displayName = document.getElementById("profile-display").value.trim();
+    var bio = document.getElementById("profile-bio").value.trim();
+    var file = document.getElementById("profile-avatar").files[0];
+    var button = event.target.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      var avatarUrl = state.me.avatar_url || null;
+      if (file) {
+        var dataUrl = await readOneFile(file);
+        if (!dataUrl) throw new Error("That image couldn't be prepared. Try a JPG or PNG.");
+        var uploaded = await uploadImage(dataUrl, "avatar-" + crypto.randomUUID() + ".jpg");
+        avatarUrl = uploaded.url;
       }
-      if (pendingImages.length > 3) {
-        els.error.textContent = "You can attach up to 3 images.";
-        return;
+      var result = await db.from("profiles").update({
+        display_name: displayName || null,
+        bio: bio || null,
+        avatar_url: avatarUrl
+      }).eq("id", state.session.user.id).select("id, username, display_name, avatar_url, bio, created_at").single();
+      if (result.error) throw result.error;
+      state.me = result.data;
+      if (state.myStreamer) {
+        await db.from("streamers").update({
+          display_name: (result.data.display_name || result.data.username),
+          bio: result.data.bio,
+          avatar_url: result.data.avatar_url
+        }).eq("id", state.myStreamer.id);
+        await loadStreamers();
       }
-      const tags = document.getElementById("post-tags").value.split(",")
-        .map(function (t) { return t.trim(); })
-        .filter(Boolean);
-      savePost({
-        id: "post-" + Date.now(),
-        title: title,
-        description: document.getElementById("post-desc").value.trim(),
-        tags: tags,
-        version: document.getElementById("post-version").value.trim(),
-        images: pendingImages.slice(0, 3),
-        likes: 0,
-        createdAt: new Date().toISOString(),
-        author: "You"
-      });
-      els.form.reset();
-      pendingImages = [];
-      renderImagePreviews();
-      els.error.textContent = "";
-      renderFeed();
-      showToast("Build posted");
-    });
+      renderNav();
+      showToast("Profile saved");
+      renderProfile();
+    } catch (err) {
+      error.textContent = friendlyError(err);
+      button.disabled = false;
+    }
+  }
 
-    ["input", "change"].forEach(function (evt) {
-      els.filters.addEventListener(evt, renderStreamers);
+  function readOneFile(file) {
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        resizeImage(reader.result, 512, 0.86, resolve);
+      };
+      reader.onerror = function () { resolve(null); };
+      reader.readAsDataURL(file);
     });
+  }
 
-    window.addEventListener("hashchange", function () {
-      const view = (location.hash || "#builds").replace("#", "");
-      if (document.querySelector('[data-view="' + view + '"]')) go(view);
-    });
-
-    /* Init */
-    renderImagePreviews();
-    renderFeed();
-    renderStreamers();
+  async function toggleFollow(profileId, button) {
+    if (!requireAuth("Log in to follow someone.")) return;
+    if (state.session.user.id === profileId) return;
+    var following = button.getAttribute("aria-pressed") === "true";
+    button.disabled = true;
+    var result = following
+      ? await db.from("follows").delete().eq("follower_id", state.session.user.id).eq("following_id", profileId)
+      : await db.from("follows").insert({ follower_id: state.session.user.id, following_id: profileId });
+    button.disabled = false;
+    if (result.error) {
+      showToast(friendlyError(result.error));
+      return;
+    }
+    showToast(following ? "Unfollowed" : "Followed");
     renderProfile();
-    const start = (location.hash || "#builds").replace("#", "");
-    go(document.querySelector('[data-view="' + start + '"]') ? start : "builds");
-  })();
+  }
+
+  async function logout() {
+    await db.auth.signOut();
+    showToast("Logged out");
+    go("builds");
+  }
+
+  function setFormError(id, error) {
+    document.getElementById(id).textContent = error ? friendlyError(error) : "";
+  }
+
+  async function onLogin(event) {
+    event.preventDefault();
+    var email = document.getElementById("login-email").value.trim();
+    var password = document.getElementById("login-password").value;
+    var button = event.target.querySelector('button[type="submit"]');
+    button.disabled = true;
+    var result = await db.auth.signInWithPassword({ email: email, password: password });
+    button.disabled = false;
+    if (result.error) {
+      setFormError("login-error", result.error);
+      return;
+    }
+    state.authReason = "";
+    showToast("Welcome back");
+    go("builds");
+  }
+
+  async function onSignup(event) {
+    event.preventDefault();
+    var email = document.getElementById("signup-email").value.trim();
+    var password = document.getElementById("signup-password").value;
+    var username = document.getElementById("signup-username").value.trim();
+    var errorEl = document.getElementById("signup-error");
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+      errorEl.textContent = "Username must be 3–20 letters, numbers, or underscores.";
+      return;
+    }
+    if (password.length < 6) {
+      errorEl.textContent = "Password must be at least 6 characters.";
+      return;
+    }
+    var taken = await db.from("profiles").select("id").filter("username", "imatch", "^" + username + "$");
+    if (taken.error) {
+      errorEl.textContent = friendlyError(taken.error);
+      return;
+    }
+    if (taken.data && taken.data.length) {
+      errorEl.textContent = "That username is taken.";
+      return;
+    }
+    var button = event.target.querySelector('button[type="submit"]');
+    button.disabled = true;
+    var result = await db.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: { username: username, display_name: username },
+        emailRedirectTo: SITE_URL
+      }
+    });
+    button.disabled = false;
+    if (result.error) {
+      errorEl.textContent = friendlyError(result.error);
+      return;
+    }
+    var identities = result.data.user && result.data.user.identities;
+    if (identities && identities.length === 0) {
+      errorEl.textContent = "An account with that email already exists. Try logging in.";
+      return;
+    }
+    if (result.data.session) {
+      showToast("Welcome to BlockBudds");
+      go("builds");
+      return;
+    }
+    state.pendingEmail = email;
+    state.checkKind = "signup";
+    state.authReason = "";
+    go("account", "check-email");
+  }
+
+  async function onForgot(event) {
+    event.preventDefault();
+    var email = document.getElementById("forgot-email").value.trim();
+    var button = event.target.querySelector('button[type="submit"]');
+    button.disabled = true;
+    var result = await db.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
+    button.disabled = false;
+    if (result.error) {
+      setFormError("forgot-error", result.error);
+      return;
+    }
+    state.pendingEmail = email;
+    state.checkKind = "reset";
+    state.authReason = "";
+    go("account", "check-email");
+  }
+
+  async function onReset(event) {
+    event.preventDefault();
+    var password = document.getElementById("reset-password").value;
+    if (password.length < 6) {
+      document.getElementById("reset-error").textContent = "Password must be at least 6 characters.";
+      return;
+    }
+    var button = event.target.querySelector('button[type="submit"]');
+    button.disabled = true;
+    var result = await db.auth.updateUser({ password: password });
+    button.disabled = false;
+    if (result.error) {
+      setFormError("reset-error", result.error);
+      return;
+    }
+    showToast("Password updated");
+    go("builds");
+  }
+
+  document.addEventListener("click", function (event) {
+    var retry = event.target.closest("[data-retry]");
+    if (retry) {
+      if (retry.getAttribute("data-retry") === "builds") loadBuilds();
+      if (retry.getAttribute("data-retry") === "streamers") loadStreamers();
+      return;
+    }
+    var profileBtn = event.target.closest("[data-profile]");
+    if (profileBtn) {
+      go("profile", profileBtn.getAttribute("data-profile"));
+      return;
+    }
+    var accountBtn = event.target.closest("[data-account]");
+    if (accountBtn) {
+      event.preventDefault();
+      state.authReason = "";
+      go("account", accountBtn.getAttribute("data-account"));
+      return;
+    }
+    var goBtn = event.target.closest("[data-go]");
+    if (goBtn) {
+      if (goBtn.tagName === "A") event.preventDefault();
+      go(goBtn.getAttribute("data-go"));
+    }
+  });
+
+  els.imageInput.addEventListener("change", function () {
+    readFiles(els.imageInput.files);
+    els.imageInput.value = "";
+  });
+  document.getElementById("pick-images").addEventListener("click", function () {
+    els.imageInput.click();
+  });
+  els.form.addEventListener("submit", shareBuild);
+  els.filters.addEventListener("submit", function (event) { event.preventDefault(); });
+  ["input", "change"].forEach(function (evt) {
+    els.filters.addEventListener(evt, paintStreamers);
+  });
+  document.getElementById("form-login").addEventListener("submit", onLogin);
+  document.getElementById("form-signup").addEventListener("submit", onSignup);
+  document.getElementById("form-forgot").addEventListener("submit", onForgot);
+  document.getElementById("form-reset").addEventListener("submit", onReset);
+  window.addEventListener("hashchange", applyHash);
+
+  renderImagePreviews();
+  syncComposer();
+  renderNav();
+
+  if (!window.supabase || !window.supabase.createClient) {
+    els.feed.innerHTML = emptyBox("BlockBudds couldn't reach the server. Refresh the page and try again.");
+    return;
+  }
+
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  });
+
+  db.auth.onAuthStateChange(function (event, session) {
+    state.session = session;
+    if (event === "PASSWORD_RECOVERY") state.accountMode = "reset";
+    if (event === "TOKEN_REFRESHED") return;
+    // Defer so this callback does not hold the auth lock while querying.
+    setTimeout(function () {
+    loadMe().then(function () {
+      renderNav();
+      syncComposer();
+      return Promise.all([loadBuilds(), loadStreamers()]);
+    }).then(function () {
+      if (!state.booted) {
+        state.booted = true;
+        if (event === "PASSWORD_RECOVERY" || state.accountMode === "reset") go("account", "reset");
+        else applyHash();
+      } else if (event === "SIGNED_OUT") {
+        go("builds");
+      } else if (state.view === "profile") {
+        renderProfile();
+      } else if (state.view === "account" && session && state.accountMode !== "reset") {
+        go("builds");
+      }
+    }).catch(function () {
+      state.buildsError = "Couldn't load BlockBudds. Check your connection and try again.";
+      state.buildsLoaded = true;
+      paintFeed();
+    });
+    }, 0);
+  });
+})();
+
   </script>
 </body>
 </html>
