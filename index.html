@@ -376,6 +376,7 @@
       margin: 16px 0 20px;
     }
     .filters h2 { font-size: 1rem; margin-bottom: 12px; }
+    .filter-tools { display: none; }
     .filter-grid {
       display: grid;
       grid-template-columns: 1.3fr repeat(4, 1fr);
@@ -713,13 +714,27 @@
       .mobile-nav button[aria-current="page"] { color: var(--grass-glow); }
       .site-footer { margin-bottom: calc(16px + var(--bottom-nav-h)); }
       .nav-account .who { max-width: 5.5rem; }
-      #filter-name-field { grid-column: 1 / -1; }
-      #streamer-filters {
-        position: sticky;
-        top: calc(var(--header-h) + 8px);
-        z-index: 25;
+      #view-streamers { padding-bottom: 8px; }
+      .streamer-grid { padding-bottom: calc(20px + var(--bottom-nav-h)); }
+      #filter-name-field { grid-column: 1; grid-row: 1; }
+      #streamer-filters { position: static; }
+      #streamer-filters .filter-grid {
+        grid-template-columns: 1fr auto;
+        align-items: end;
       }
-      #streamer-filters input,
+      #streamer-filters .filter-tools {
+        display: flex;
+        grid-column: 2;
+        grid-row: 1;
+      }
+      #streamer-filters .filter-toggle,
+      #filter-toggle {
+        min-height: 44px;
+        white-space: nowrap;
+      }
+      #streamer-filters:not(.is-open) .filter-extra { display: none; }
+      #streamer-filters.is-open .filter-extra { grid-column: 1 / -1; }
+      #streamer-filters input:not([type="checkbox"]),
       #streamer-filters select,
       .auth-card input,
       .profile-edit input,
@@ -833,7 +848,7 @@
       <form id="streamer-filters" class="card filters" autocomplete="off">
         <h2>Search streamers</h2>
         <div class="filter-grid">
-          <div class="field filter-live">
+          <div class="field filter-live filter-extra">
             <label class="choice" for="filter-live">
               <input id="filter-live" name="live-only" type="checkbox" autocomplete="off" />
               Live now only
@@ -843,7 +858,10 @@
             <label for="filter-name">Name</label>
             <input id="filter-name" name="streamer-search" autocomplete="off" placeholder="Search names" enterkeyhint="search" />
           </div>
-          <div class="field">
+          <div class="filter-tools">
+            <button type="button" class="btn btn-ghost" id="filter-toggle" aria-expanded="false" aria-controls="filter-extra-fields">Filters</button>
+          </div>
+          <div class="field filter-extra" id="filter-extra-fields">
             <label for="filter-platform">Platform</label>
             <select id="filter-platform" name="stream-platform" autocomplete="off">
               <option value="">Any</option>
@@ -853,7 +871,7 @@
               <option value="tiktok">TikTok</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field filter-extra">
             <label for="filter-day">Day</label>
             <select id="filter-day" name="stream-day" autocomplete="off">
               <option value="">Any</option>
@@ -866,7 +884,7 @@
               <option value="Sun">Sunday</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field filter-extra">
             <label for="filter-time">Time</label>
             <select id="filter-time" name="stream-time" autocomplete="off">
               <option value="">Any</option>
@@ -876,7 +894,7 @@
               <option value="late night">Late night</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field filter-extra">
             <label for="filter-type">Minecraft type</label>
             <select id="filter-type" name="minecraft-type" autocomplete="off">
               <option value="">Any</option>
@@ -2319,8 +2337,28 @@
   els.form.addEventListener("submit", shareBuild);
   els.filters.addEventListener("submit", function (event) { event.preventDefault(); });
   ["input", "change"].forEach(function (evt) {
-    els.filters.addEventListener(evt, paintStreamers);
+    els.filters.addEventListener(evt, function () {
+      paintStreamers();
+      updateFilterToggle();
+    });
   });
+  document.getElementById("filter-toggle").addEventListener("click", function () {
+    var form = document.getElementById("streamer-filters");
+    form.classList.toggle("is-open");
+    updateFilterToggle();
+  });
+  function updateFilterToggle() {
+    var count = 0;
+    if (document.getElementById("filter-live").checked) count += 1;
+    ["filter-platform", "filter-day", "filter-time", "filter-type"].forEach(function (id) {
+      if (document.getElementById(id).value) count += 1;
+    });
+    var button = document.getElementById("filter-toggle");
+    var open = document.getElementById("streamer-filters").classList.contains("is-open");
+    button.textContent = count ? "Filters (" + count + ")" : "Filters";
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  updateFilterToggle();
   document.getElementById("form-login").addEventListener("submit", onLogin);
   document.getElementById("form-signup").addEventListener("submit", onSignup);
   document.getElementById("form-forgot").addEventListener("submit", onForgot);
