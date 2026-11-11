@@ -587,20 +587,20 @@
         <div class="form-grid">
           <div class="field span-2">
             <label for="post-title">Title</label>
-            <input id="post-title" name="title" required maxlength="120" placeholder="e.g. Cliffside oak manor" />
+            <input id="post-title" name="build-title" autocomplete="off" required maxlength="120" placeholder="e.g. Cliffside oak manor" />
           </div>
           <div class="field span-2">
             <label for="post-desc">Description</label>
-            <textarea id="post-desc" name="description" maxlength="2000" placeholder="What did you build, and how long did it take?"></textarea>
+            <textarea id="post-desc" name="build-description" autocomplete="off" maxlength="2000" placeholder="What did you build, and how long did it take?"></textarea>
           </div>
           <div class="field">
             <label for="post-tags">Tags</label>
-            <input id="post-tags" name="tags" maxlength="200" placeholder="survival, manor, oak" />
+            <input id="post-tags" name="build-tags" autocomplete="off" maxlength="200" placeholder="survival, manor, oak" />
             <span class="hint">Comma-separated</span>
           </div>
           <div class="field">
             <label for="post-version">Minecraft version</label>
-            <input id="post-version" name="version" list="version-list" maxlength="32" placeholder="1.21" />
+            <input id="post-version" name="minecraft-version" autocomplete="off" list="version-list" maxlength="32" placeholder="1.21" />
             <datalist id="version-list">
               <option value="1.21"></option>
               <option value="1.21.1"></option>
@@ -615,7 +615,7 @@
           <div class="field span-2">
             <label for="post-images">Images (up to 3)</label>
             <div class="file-picker">
-              <input id="post-images" name="images" type="file" accept="image/*" multiple />
+              <input id="post-images" name="build-images" type="file" accept="image/*" multiple autocomplete="off" />
               <button type="button" class="btn btn-ghost" id="pick-images">Choose images</button>
               <span class="hint" id="image-count">No images selected</span>
             </div>
@@ -637,16 +637,16 @@
         <h1>Streamers</h1>
         <p>Find Minecraft streamers by name, platform, day, time, and world type. Filters are strict: a streamer only appears if they match every filter you set.</p>
       </div>
-      <form id="streamer-filters" class="card filters">
+      <form id="streamer-filters" class="card filters" autocomplete="off">
         <h2>Search</h2>
         <div class="filter-grid">
           <div class="field">
             <label for="filter-name">Name</label>
-            <input id="filter-name" name="name" placeholder="Search names" />
+            <input id="filter-name" name="streamer-search" autocomplete="off" placeholder="Search names" />
           </div>
           <div class="field">
             <label for="filter-platform">Platform</label>
-            <select id="filter-platform" name="platform">
+            <select id="filter-platform" name="stream-platform" autocomplete="off">
               <option value="">Any</option>
               <option value="Twitch">Twitch</option>
               <option value="YouTube">YouTube</option>
@@ -655,7 +655,7 @@
           </div>
           <div class="field">
             <label for="filter-day">Day</label>
-            <select id="filter-day" name="day">
+            <select id="filter-day" name="stream-day" autocomplete="off">
               <option value="">Any</option>
               <option value="Mon">Monday</option>
               <option value="Tue">Tuesday</option>
@@ -668,7 +668,7 @@
           </div>
           <div class="field">
             <label for="filter-time">Time</label>
-            <select id="filter-time" name="time">
+            <select id="filter-time" name="stream-time" autocomplete="off">
               <option value="">Any</option>
               <option value="morning">Morning</option>
               <option value="afternoon">Afternoon</option>
@@ -678,7 +678,7 @@
           </div>
           <div class="field">
             <label for="filter-type">Minecraft type</label>
-            <select id="filter-type" name="type">
+            <select id="filter-type" name="minecraft-type" autocomplete="off">
               <option value="">Any</option>
               <option value="Survival">Survival</option>
               <option value="Creative">Creative</option>
