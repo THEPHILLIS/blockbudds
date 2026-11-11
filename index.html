@@ -419,6 +419,24 @@
       gap: 14px;
       padding-bottom: 32px;
     }
+    .outside-results { margin-top: 18px; }
+    .outside-results h2 {
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+    .outside-note {
+      color: var(--ink-mute);
+      font-size: 0.82rem;
+      margin: 0 0 12px;
+    }
+    .outside-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+    .outside-status { color: var(--ink-dim); font-size: 0.92rem; margin: 8px 0 0; }
+    .mc-tag { color: var(--grass-glow); border-color: rgba(90, 166, 58, 0.45); }
     .streamer-card {
       padding: 16px;
       display: flex;
@@ -705,7 +723,7 @@
     .mobile-nav { display: none; }
 
     @media (max-width: 900px) {
-      .filter-grid, .streamer-grid { grid-template-columns: 1fr 1fr; }
+      .filter-grid, .streamer-grid, .outside-grid { grid-template-columns: 1fr 1fr; }
       #filter-name-field { grid-column: 1 / -1; }
     }
     @media (max-width: 680px) {
@@ -713,7 +731,7 @@
       .site-header { padding: 0 14px; }
       .brand-word { font-size: 1.15rem; }
       .nav-main { display: none; }
-      .form-grid, .filter-grid, .streamer-grid, .image-row { grid-template-columns: 1fr; }
+      .form-grid, .filter-grid, .streamer-grid, .outside-grid, .image-row { grid-template-columns: 1fr; }
       .image-row { grid-template-columns: repeat(3, 1fr); }
       .page-intro { padding-top: 18px; }
       .field textarea { min-height: 64px; }
@@ -747,7 +765,11 @@
       .site-footer { margin-bottom: calc(16px + var(--bottom-nav-h)); }
       .nav-account .who { max-width: 5.5rem; }
       #view-streamers { padding-bottom: 8px; }
-      .streamer-grid { padding-bottom: calc(20px + var(--bottom-nav-h)); }
+      .streamer-grid { padding-bottom: 16px; }
+      .outside-results { padding-bottom: calc(20px + var(--bottom-nav-h)); }
+      #view-streamers:not(:has(#outside-results:not([hidden]))) .streamer-grid {
+        padding-bottom: calc(20px + var(--bottom-nav-h));
+      }
       #filter-name-field { grid-column: 1; grid-row: 1; }
       #streamer-filters { position: static; }
       #streamer-filters .filter-grid {
@@ -934,6 +956,7 @@
       </form>
       <div id="streamer-self"></div>
       <div id="streamer-results" class="streamer-grid"></div>
+      <section id="outside-results" class="outside-results" hidden></section>
     </section>
 
     <section id="view-profile" class="view" data-view="profile">
@@ -2359,11 +2382,156 @@
     els.imageInput.click();
   });
   els.form.addEventListener("submit", shareBuild);
+  var outsideCache = {};
+  var outsideTimer = null;
+  var outsideAbort = null;
+  var outsideState = { key: "", loading: false, error: false, data: null };
+
+  function outsideQueryKey(value) {
+    return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function scheduleOutsideSearch() {
+    var raw = document.getElementById("filter-name").value.trim();
+    clearTimeout(outsideTimer);
+    if (raw.length < 2 || raw.length > 50) {
+      if (outsideAbort) outsideAbort.abort();
+      outsideState = { key: "", loading: false, error: false, data: null };
+      paintOutside();
+      return;
+    }
+    var key = outsideQueryKey(raw);
+    if (outsideCache[key]) {
+      if (outsideAbort) outsideAbort.abort();
+      outsideState = { key: key, loading: false, error: false, data: outsideCache[key] };
+      paintOutside();
+      return;
+    }
+    outsideTimer = setTimeout(function () { fetchOutside(raw, key); }, 500);
+  }
+
+  function fetchOutside(raw, key) {
+    if (outsideAbort) outsideAbort.abort();
+    var controller = new AbortController();
+    outsideAbort = controller;
+    outsideState = { key: key, loading: true, error: false, data: outsideState.key === key ? outsideState.data : null };
+    paintOutside();
+    fetch(SUPABASE_URL + "/functions/v1/search-streamers?q=" + encodeURIComponent(raw), {
+      signal: controller.signal,
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: "Bearer " + SUPABASE_ANON_KEY
+      }
+    }).then(function (res) {
+      if (!res.ok) throw new Error("search failed");
+      return res.json();
+    }).then(function (data) {
+      if (controller.signal.aborted) return;
+      if (!data || !Array.isArray(data.twitch) || !Array.isArray(data.youtube)) throw new Error("bad search payload");
+      outsideCache[key] = data;
+      outsideState = { key: key, loading: false, error: false, data: data };
+      paintOutside();
+    }).catch(function (err) {
+      if (err && err.name === "AbortError") return;
+      if (outsideState.key !== key) return;
+      outsideState = { key: key, loading: false, error: true, data: null };
+      paintOutside();
+    });
+  }
+
+  function outsideItems(data) {
+    var twitch = (data.twitch || []).slice().sort(function (a, b) {
+      return (b.minecraft ? 1 : 0) - (a.minecraft ? 1 : 0);
+    });
+    var list = twitch.concat(data.youtube || []);
+    if (document.getElementById("filter-live").checked) {
+      list = list.filter(function (item) { return !!item.is_live; });
+    }
+    return list;
+  }
+
+  function subscriberLabel(count) {
+    var num = Number(count);
+    if (!isFinite(num) || num < 0) return "";
+    return num.toLocaleString("en-GB") + (num === 1 ? " subscriber" : " subscribers");
+  }
+
+  function outsideCard(item) {
+    var card = document.createElement("article");
+    card.className = "card streamer-card";
+    var platform = item.platform === "youtube" ? "youtube" : "twitch";
+    var bits = [];
+    if (item.is_live && item.live_title) bits.push(item.live_title);
+    if (item.game) bits.push(item.game);
+    var subs = subscriberLabel(item.subscribers);
+    if (subs) bits.push(subs);
+    card.innerHTML =
+      '<div class="streamer-top">' + avatarHtml(item.name, item.avatar_url) +
+        "<div><h3>" + escapeHtml(item.name || item.handle) + "</h3>" +
+        '<span class="platform ' + platform + '">' + escapeHtml(platformLabel(platform)) + "</span> " +
+        (item.minecraft ? '<span class="tag mc-tag">Minecraft</span> ' : "") +
+        (item.is_live ? '<span class="live-badge">Live</span>' : "") +
+        "</div></div>" +
+      (bits.length ? '<p class="bio">' + escapeHtml(bits.join(" · ")) + "</p>" : "") +
+      '<p class="outside-note">Not on BlockBudds yet</p>' +
+      '<div class="card-actions"></div>';
+    if (item.channel_url) {
+      var link = document.createElement("a");
+      link.className = "btn btn-ghost";
+      link.href = item.channel_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = item.is_live ? "Watch" : "Visit";
+      card.querySelector(".card-actions").appendChild(link);
+    }
+    return card;
+  }
+
+  function paintOutside() {
+    var root = document.getElementById("outside-results");
+    if (!root) return;
+    var raw = document.getElementById("filter-name").value.trim();
+    if (raw.length < 2 || outsideState.error) {
+      root.hidden = true;
+      root.innerHTML = "";
+      return;
+    }
+    root.hidden = false;
+    root.innerHTML = "<h2>More on Twitch &amp; YouTube</h2>";
+    if (outsideState.loading && !outsideState.data) {
+      root.insertAdjacentHTML("beforeend", '<p class="outside-status">Searching Twitch and YouTube…</p>');
+      return;
+    }
+    var data = outsideState.data;
+    if (!data) {
+      root.hidden = true;
+      root.innerHTML = "";
+      return;
+    }
+    if (data.youtube_limited) {
+      root.insertAdjacentHTML("beforeend", '<p class="outside-status">YouTube search is busy, try again later.</p>');
+    }
+    var list = outsideItems(data);
+    if (!list.length) {
+      root.insertAdjacentHTML("beforeend", '<p class="outside-status">' +
+        (document.getElementById("filter-live").checked ? "No live channels match that search." : "No other channels found.") +
+        "</p>");
+      return;
+    }
+    var grid = document.createElement("div");
+    grid.className = "outside-grid";
+    list.forEach(function (item) { grid.appendChild(outsideCard(item)); });
+    root.appendChild(grid);
+  }
+
   els.filters.addEventListener("submit", function (event) { event.preventDefault(); });
   ["input", "change"].forEach(function (evt) {
-    els.filters.addEventListener(evt, function () {
+    els.filters.addEventListener(evt, function (event) {
       paintStreamers();
       updateFilterToggle();
+      var id = event.target && event.target.id;
+      if (id === "filter-name") scheduleOutsideSearch();
+      else if (id === "filter-live") paintOutside();
     });
   });
   document.getElementById("filter-toggle").addEventListener("click", function () {

@@ -13,3 +13,5 @@ This is a static site for GitHub Pages, Cloudflare Pages, or Netlify at [blockbu
 ## Live status
 
 A scheduled Edge Function (`supabase/functions/check-live`) checks Twitch every 2 minutes and YouTube every 6 minutes, then writes `is_live`, `live_url`, and the other live columns on `streamers`. Kick is not checked yet. Twitch, YouTube, and cron credentials live in Supabase function secrets and in Vault (`check_live_cron_secret`), not in this repo.
+
+Searching a name with at least two characters also asks `search-streamers` for Twitch and YouTube channels that are not already listed. Those results appear under the BlockBudds directory. The function caches Twitch for 10 minutes and YouTube for 24 hours, and it caps fresh YouTube searches at 60 per day.
