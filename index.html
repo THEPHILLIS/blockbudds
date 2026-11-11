@@ -533,12 +533,111 @@
       padding: 8px 10px;
     }
     .choice input { width: auto; }
+    .field label.choice {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.95rem;
+      font-weight: 650;
+      color: var(--ink);
+    }
     .verified {
       color: var(--gold);
       font-size: 0.72rem;
       font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
+    }
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #e23b3b;
+      color: #fff;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      line-height: 1.4;
+    }
+    .live-badge::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .filter-live { grid-column: 1 / -1; }
+    .filter-live .choice { width: auto; }
+    .streamer-card.is-live {
+      border-color: rgba(226, 59, 59, 0.55);
+      cursor: pointer;
+    }
+    .live-shot {
+      display: block;
+      position: relative;
+      margin: -4px -4px 2px;
+      border-radius: 8px;
+      overflow: hidden;
+      color: inherit;
+      text-decoration: none;
+    }
+    .live-shot:hover { text-decoration: none; }
+    .live-shot img {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display: block;
+      background: #111;
+    }
+    .live-shot .live-badge { position: absolute; top: 8px; left: 8px; }
+    .live-detail { display: grid; gap: 2px; }
+    .live-detail a { color: inherit; text-decoration: none; }
+    .live-detail a:hover { color: var(--grass-glow); }
+    .live-title { font-weight: 700; color: var(--ink); }
+    .live-meta { color: var(--ink-dim); font-size: 0.85rem; }
+    .live-strip { margin: 4px 0 16px; }
+    .live-strip h2 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .live-row {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .live-pill {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      min-width: 260px;
+      max-width: 380px;
+      flex: 1 0 260px;
+      padding: 10px;
+      color: inherit;
+      text-decoration: none;
+    }
+    .live-pill:hover { text-decoration: none; border-color: rgba(226, 59, 59, 0.55); }
+    .live-pill img, .live-pill .live-fallback {
+      width: 112px;
+      height: 63px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+      background: #1a2018;
+    }
+    .live-pill .copy { min-width: 0; }
+    .live-pill .name {
+      font-weight: 750;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .platform.tiktok { background: #111; color: #fff; box-shadow: inset 0 0 0 1px #25f4ee; }
     .self-card { padding: 16px 18px; margin: 0 0 16px; }
@@ -665,6 +764,8 @@
         <p>Share a creation, drop a like, and check today's most-loved post.</p>
       </div>
 
+      <section id="live-strip" class="live-strip" hidden></section>
+
       <div id="post-gate" class="card composer" hidden>
         <h2>New post</h2>
         <p class="desc">Make an account before you post. You can still browse builds without one.</p>
@@ -732,6 +833,12 @@
       <form id="streamer-filters" class="card filters" autocomplete="off">
         <h2>Search streamers</h2>
         <div class="filter-grid">
+          <div class="field filter-live">
+            <label class="choice" for="filter-live">
+              <input id="filter-live" name="live-only" type="checkbox" autocomplete="off" />
+              Live now only
+            </label>
+          </div>
           <div class="field" id="filter-name-field">
             <label for="filter-name">Name</label>
             <input id="filter-name" name="streamer-search" autocomplete="off" placeholder="Search names" enterkeyhint="search" />
@@ -1242,18 +1349,68 @@
     state.liked = liked;
     state.buildsLoaded = true;
     paintFeed();
+    paintLiveStrip();
     if (state.view === "profile") renderProfile();
   }
 
-  async function loadStreamers() {
+  function isLive(row) {
+    if (!row) return false;
+    return row.is_live === true || row.is_live === "true" || row.is_live === 1;
+  }
+
+  function streamWatchUrl(row) {
+    var handle = String((row && row.channel_handle) || "").replace(/^@+/, "").trim();
+    if (handle && (!row.platform || row.platform === "twitch")) {
+      return "https://twitch.tv/" + encodeURIComponent(handle);
+    }
+    if (row && row.channel_url) return row.channel_url;
+    return handle ? "https://twitch.tv/" + encodeURIComponent(handle) : "";
+  }
+
+  function liveImageUrl(row) {
+    var value = String((row && row.live_thumbnail_url) || "").trim();
+    if (!value) return "";
+    value = value.replace(/\{width\}/gi, "640").replace(/\{height\}/gi, "360");
+    if (/^https?:\/\//i.test(value) || /^data:image\//i.test(value)) return value;
+    return "";
+  }
+
+  function viewerLabel(count) {
+    if (count == null || count === "") return "";
+    var num = Number(count);
+    if (!isFinite(num) || num < 0) return "";
+    return num.toLocaleString("en-GB") + (num === 1 ? " viewer" : " viewers");
+  }
+
+  function liveStreamers() {
+    return state.streamers.filter(isLive).sort(function (a, b) {
+      return (Number(b.live_viewers) || 0) - (Number(a.live_viewers) || 0);
+    });
+  }
+
+  function sortLiveFirst(list) {
+    return list.slice().sort(function (a, b) {
+      var byLive = (isLive(b) ? 1 : 0) - (isLive(a) ? 1 : 0);
+      if (byLive) return byLive;
+      return String(a.display_name || "").localeCompare(String(b.display_name || ""), "en");
+    });
+  }
+
+  async function loadStreamers(options) {
+    options = options || {};
     var res = await db.from("streamers").select("*").order("display_name");
     if (res.error) {
-      state.streamersError = "Couldn't load streamers. Check your connection and try again.";
-      state.streamers = [];
-    } else {
-      state.streamersError = "";
-      state.streamers = res.data || [];
+      if (!options.quiet) {
+        state.streamersError = "Couldn't load streamers. Check your connection and try again.";
+        state.streamers = [];
+        state.streamersLoaded = true;
+        paintStreamers();
+        paintLiveStrip();
+      }
+      return;
     }
+    state.streamersError = "";
+    state.streamers = res.data || [];
     state.myStreamer = null;
     if (state.session) {
       state.myStreamer = state.streamers.filter(function (row) {
@@ -1262,7 +1419,8 @@
     }
     state.streamersLoaded = true;
     paintStreamers();
-    paintStreamerSelf(false);
+    paintLiveStrip();
+    if (!options.quiet) paintStreamerSelf(false);
   }
 
   function filteredStreamers() {
@@ -1271,7 +1429,8 @@
     var day = document.getElementById("filter-day").value;
     var time = document.getElementById("filter-time").value;
     var type = document.getElementById("filter-type").value;
-    return state.streamers.filter(function (row) {
+    var liveOnly = !!document.getElementById("filter-live").checked;
+    return sortLiveFirst(state.streamers.filter(function (row) {
       var display = (row.display_name || "").toLowerCase();
       var handle = (row.channel_handle || "").toLowerCase();
       if (name && display.indexOf(name) === -1 && handle.indexOf(name) === -1) return false;
@@ -1279,8 +1438,47 @@
       if (day && (row.days || []).indexOf(day) === -1) return false;
       if (time && row.time_of_day !== time) return false;
       if (type && (row.mc_types || []).map(function (item) { return String(item).toLowerCase(); }).indexOf(type) === -1) return false;
+      if (liveOnly && !isLive(row)) return false;
       return true;
-    });
+    }));
+  }
+
+  function paintLiveStrip() {
+    var root = document.getElementById("live-strip");
+    if (!root) return;
+    var live = liveStreamers();
+    if (!live.length) {
+      root.hidden = true;
+      root.innerHTML = "";
+      return;
+    }
+    root.hidden = false;
+    root.innerHTML = "<h2>Live now</h2>";
+    var row = document.createElement("div");
+    row.className = "live-row";
+    live.forEach(function (streamer) { row.appendChild(livePill(streamer)); });
+    root.appendChild(row);
+  }
+
+  function livePill(row) {
+    var link = document.createElement("a");
+    link.className = "card live-pill";
+    link.href = streamWatchUrl(row);
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    var thumb = liveImageUrl(row);
+    var viewers = viewerLabel(row.live_viewers);
+    var bits = [row.live_game, viewers].filter(Boolean).join(" · ");
+    link.innerHTML =
+      (thumb
+        ? '<img alt="" src="' + escapeHtml(thumb) + '" />'
+        : '<div class="live-fallback"></div>') +
+      '<div class="copy"><div class="name">' + escapeHtml(row.display_name || row.channel_handle) + '</div>' +
+        '<div><span class="live-badge">Live</span></div>' +
+        (row.live_title ? '<div class="live-title">' + escapeHtml(row.live_title) + "</div>" : "") +
+        (bits ? '<div class="live-meta">' + escapeHtml(bits) + "</div>" : "") +
+      "</div>";
+    return link;
   }
 
   function paintStreamers() {
@@ -1307,15 +1505,31 @@
 
   function streamerCard(row) {
     var card = document.createElement("article");
-    card.className = "card streamer-card";
+    var live = isLive(row);
+    card.className = "card streamer-card" + (live ? " is-live" : "");
     var name = row.display_name || row.channel_handle;
     var types = (row.mc_types || []).map(typeLabel).join(", ");
+    var watchUrl = streamWatchUrl(row);
+    var thumb = live ? liveImageUrl(row) : "";
+    var viewers = viewerLabel(row.live_viewers);
+    var liveBits = [row.live_game, viewers].filter(Boolean);
     card.innerHTML =
+      (live && thumb
+        ? '<a class="live-shot" href="' + escapeHtml(watchUrl) + '" target="_blank" rel="noopener noreferrer">' +
+            '<img alt="" src="' + escapeHtml(thumb) + '" /><span class="live-badge">Live</span></a>'
+        : "") +
       '<div class="streamer-top">' + avatarHtml(name, row.avatar_url) +
         "<div><h3>" + escapeHtml(name) + "</h3>" +
-        '<span class="platform ' + escapeHtml(row.platform) + '">' + escapeHtml(platformLabel(row.platform)) + "</span>" +
-        (row.verified ? ' <span class="verified">Verified</span>' : "") +
+        '<span class="platform ' + escapeHtml(row.platform) + '">' + escapeHtml(platformLabel(row.platform)) + "</span> " +
+        (live && !thumb ? '<span class="live-badge">Live</span> ' : "") +
+        (row.verified ? '<span class="verified">Verified</span>' : "") +
         "</div></div>" +
+      (live
+        ? '<div class="live-detail"><a href="' + escapeHtml(watchUrl) + '" target="_blank" rel="noopener noreferrer">' +
+            (row.live_title ? '<div class="live-title">' + escapeHtml(row.live_title) + "</div>" : "") +
+            (liveBits.length ? '<div class="live-meta">' + escapeHtml(liveBits.join(" · ")) + "</div>" : "") +
+          "</a></div>"
+        : "") +
       (row.bio ? '<p class="bio">' + escapeHtml(row.bio) + "</p>" : "") +
       '<div class="meta-list">' +
         "<div><strong>Days</strong> " + escapeHtml((row.days || []).join(" · ") || "Not set") + "</div>" +
@@ -1323,6 +1537,12 @@
         "<div><strong>Type</strong> " + escapeHtml(types || "Not set") + "</div>" +
       "</div>" +
       '<div class="card-actions"></div>';
+    if (live && watchUrl) {
+      card.addEventListener("click", function (event) {
+        if (event.target.closest("a, button")) return;
+        window.open(watchUrl, "_blank", "noopener");
+      });
+    }
     var actions = card.querySelector(".card-actions");
     if (row.profile_id) {
       var viewBtn = document.createElement("button");
@@ -2087,6 +2307,8 @@
       detectSessionInUrl: true
     }
   });
+
+  setInterval(function () { loadStreamers({ quiet: true }); }, 60000);
 
   db.auth.onAuthStateChange(function (event, session) {
     state.session = session;
