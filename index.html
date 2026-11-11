@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="BlockBudds — a social space for Minecraft builds and streamers." />
   <title>BlockBudds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&amp;display=swap" rel="stylesheet" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+  <meta property="og:title" content="BlockBudds" />
+  <meta property="og:description" content="BlockBudds — a social space for Minecraft builds and streamers." />
+  <meta property="og:image" content="https://blockbudds.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="BlockBudds" />
+  <meta name="twitter:description" content="BlockBudds — a social space for Minecraft builds and streamers." />
+  <meta name="twitter:image" content="https://blockbudds.com/og-image.png" />
   <style>
     :root {
       --bg: #10140f;
@@ -88,13 +103,29 @@
       flex-shrink: 0;
     }
     .brand:hover { text-decoration: none; }
-    .brand-mark { width: 32px; height: 32px; display: block; }
     .brand-word {
-      font-weight: 750;
-      font-size: 1.2rem;
+      display: inline-flex;
+      align-items: flex-end;
+      font-family: "Fredoka", var(--font);
+      font-weight: 700;
+      font-size: clamp(1.15rem, 2.4vw, 1.7rem);
       letter-spacing: -0.03em;
+      line-height: 1;
+      color: #fff;
+      text-shadow:
+        1px 1px 0 #9be15d,
+        2px 2px 0 #6ec82a,
+        3px 3px 0 #4ea318,
+        4px 5px 4px rgba(0, 0, 0, 0.4);
     }
-    .brand-word span { color: var(--grass-glow); }
+    .brand-cube {
+      width: 0.72em;
+      height: 0.78em;
+      margin: 0 0.01em 0.08em;
+      display: block;
+      flex: 0 0 auto;
+      filter: drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.35));
+    }
 
     .nav-main { display: flex; gap: 4px; }
     .nav-main button {
@@ -680,6 +711,7 @@
     @media (max-width: 680px) {
       :root { --header-h: 56px; --bottom-nav-h: 60px; }
       .site-header { padding: 0 14px; }
+      .brand-word { font-size: 1.15rem; }
       .nav-main { display: none; }
       .form-grid, .filter-grid, .streamer-grid, .image-row { grid-template-columns: 1fr; }
       .image-row { grid-template-columns: repeat(3, 1fr); }
@@ -751,16 +783,8 @@
 <body>
   <a class="skip" href="#app">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="#builds" data-go="builds">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-        <path fill="#3d7a24" d="M8 14h16l-6 5H14z"/>
-        <path fill="#5aa63a" d="M8 14l8-6 8 6-8 5z"/>
-        <path fill="#6b4a28" d="M10 19v6l6 4V24z"/>
-        <path fill="#8a6234" d="M16 24v5l6-4v-6z"/>
-        <path fill="#4a3018" d="M16 19l6-5v6l-6 5z"/>
-        <path fill="#3a2412" d="M10 19l6-5v6l-6 5z"/>
-      </svg>
-      <span class="brand-word">Block<span>Budds</span></span>
+    <a class="brand" href="#builds" data-go="builds" aria-label="BlockBudds">
+      <span class="brand-word" aria-hidden="true">Bl<svg class="brand-cube" viewBox="3 2 26 28" aria-hidden="true"><path fill="#c6f56a" d="M16 3.2 28.2 10 16 16.8 3.8 10Z"/><path fill="#7ed321" d="M3.8 10 16 16.8V28.8L3.8 22Z"/><path fill="#4ea318" d="M28.2 10 16 16.8V28.8l12.2-6.8Z"/></svg>ckBudds</span>
     </a>
     <div class="header-actions">
       <nav class="nav-main" aria-label="Primary">
