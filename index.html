@@ -437,6 +437,104 @@
     }
     .outside-status { color: var(--ink-dim); font-size: 0.92rem; margin: 8px 0 0; }
     .mc-tag { color: var(--grass-glow); border-color: rgba(90, 166, 58, 0.45); }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+    .follow-chip {
+      min-height: 44px;
+      border: 1px solid var(--line-strong);
+      background: var(--bg);
+      color: var(--ink-dim);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-weight: 700;
+    }
+    .follow-chip[aria-pressed="true"] {
+      background: #243318;
+      color: #c6f56a;
+      border-color: #7ed321;
+    }
+    .follow-block {
+      width: 44px;
+      height: 44px;
+      margin-left: auto;
+      flex-shrink: 0;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+    .follow-cube {
+      width: 36px;
+      height: 36px;
+      margin: 4px;
+      display: grid;
+      place-items: center;
+      background: #141910;
+      color: #c6f56a;
+      border: 2px solid #7ed321;
+      border-radius: 6px;
+      box-shadow: 3px 3px 0 #3d7a24;
+      font-weight: 800;
+      font-size: 1.25rem;
+      line-height: 1;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.12s ease;
+    }
+    .follow-block:active .follow-cube {
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0 #3d7a24;
+    }
+    .follow-block[aria-pressed="true"] .follow-cube {
+      background: linear-gradient(160deg, #d4ff86, #7ed321 55%, #4ea318);
+      color: #14300a;
+      border-color: #2f6b12;
+      box-shadow: 3px 3px 0 #2f6b12;
+    }
+    .your-streamers { margin: 0 0 16px; }
+    .your-streamers h2 { font-size: 1.05rem; margin-bottom: 10px; }
+    .your-row {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 2px 2px 10px;
+    }
+    .your-tile {
+      flex: 0 0 84px;
+      width: 84px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      padding: 0;
+      min-height: 44px;
+    }
+    .your-block {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 6px;
+      position: relative;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #1b2118;
+      border: 2px solid #3d7a24;
+      border-radius: 8px;
+      box-shadow: 4px 4px 0 #243314;
+    }
+    .your-block img { width: 100%; height: 100%; object-fit: cover; }
+    .your-tile.is-live .your-block {
+      border-color: #c6f56a;
+      box-shadow: 0 0 0 2px rgba(198, 245, 106, 0.45), 4px 4px 0 #3d8f12;
+    }
+    .your-block .live-badge { position: absolute; top: 4px; left: 4px; }
+    .your-name {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .streamer-top { align-items: flex-start; }
     .streamer-card {
       padding: 16px;
       display: flex;
@@ -893,6 +991,9 @@
       </div>
       <form id="streamer-filters" class="card filters" autocomplete="off">
         <h2>Search streamers</h2>
+        <div class="filter-bar">
+          <button type="button" class="follow-chip" id="filter-following" aria-pressed="false">Following only</button>
+        </div>
         <div class="filter-grid">
           <div class="field filter-live filter-extra">
             <label class="choice" for="filter-live">
@@ -954,6 +1055,7 @@
           </div>
         </div>
       </form>
+      <section id="your-streamers" class="your-streamers" hidden></section>
       <div id="streamer-self"></div>
       <div id="streamer-results" class="streamer-grid"></div>
       <section id="outside-results" class="outside-results" hidden></section>
@@ -1105,7 +1207,8 @@
     authReason: "",
     checkKind: "signup",
     pendingEmail: "",
-    booted: false
+    booted: false,
+    follows: []
   };
 
   var els = {
@@ -1219,6 +1322,229 @@
 
   function channelUrl(platform, handle) {
     return channelPageUrl({ platform: platform, channel_handle: handle });
+  }
+
+  function followingOnly() {
+    var chip = document.getElementById("filter-following");
+    return !!(chip && chip.getAttribute("aria-pressed") === "true");
+  }
+
+  function httpsUrl(value) {
+    var url = String(value || "").trim();
+    return url.indexOf("https://") === 0 ? url.slice(0, 500) : "";
+  }
+
+  function youtubeChannelKey(source) {
+    var direct = String(source.youtube_channel_id || source.channel_id || "").trim();
+    if (/^UC[\w-]{22}$/i.test(direct)) return direct.toLowerCase();
+    var fromUrl = String(source.channel_url || "").match(/youtube\.com\/channel\/(UC[\w-]{22})/i);
+    return fromUrl ? fromUrl[1].toLowerCase() : "";
+  }
+
+  function followIdentityFromListed(row) {
+    if (!row || !row.platform) return null;
+    var channelKey = row.platform === "youtube"
+      ? youtubeChannelKey(row)
+      : String(row.channel_handle || "").replace(/^@+/, "").trim().toLowerCase();
+    if (!channelKey) return null;
+    return {
+      platform: row.platform,
+      channel_key: channelKey,
+      streamer_id: row.id || null,
+      display_name: String(row.display_name || row.channel_handle || "").slice(0, 100),
+      avatar_url: row.avatar_url ? String(row.avatar_url).slice(0, 500) : null,
+      channel_url: httpsUrl(streamWatchUrl(row) || row.channel_url)
+    };
+  }
+
+  function followIdentityFromOutside(item) {
+    if (!item || (item.platform !== "twitch" && item.platform !== "youtube")) return null;
+    var channelKey = item.platform === "youtube"
+      ? youtubeChannelKey(item)
+      : String(item.login || item.handle || "").replace(/^@+/, "").trim().toLowerCase();
+    if (!channelKey) return null;
+    return {
+      platform: item.platform,
+      channel_key: channelKey,
+      streamer_id: null,
+      display_name: String(item.name || item.handle || "").slice(0, 100),
+      avatar_url: item.avatar_url ? String(item.avatar_url).slice(0, 500) : null,
+      channel_url: httpsUrl(item.channel_url)
+    };
+  }
+
+  function followMapKey(identity) {
+    return identity ? identity.platform + ":" + identity.channel_key : "";
+  }
+
+  function isFollowed(identity) {
+    var key = followMapKey(identity);
+    if (!key) return false;
+    return state.follows.some(function (row) {
+      return row.platform + ":" + String(row.channel_key || "").toLowerCase() === key;
+    });
+  }
+
+  function followBlockHtml(identity, name) {
+    if (!identity || !identity.channel_url) return "";
+    var on = isFollowed(identity);
+    var label = (on ? "Following " : "Follow ") + (name || identity.display_name || "streamer");
+    return '<button type="button" class="follow-block" data-follow-key="' + escapeHtml(followMapKey(identity)) + '"' +
+      ' data-follow-name="' + escapeHtml(name || identity.display_name || "") + '"' +
+      ' aria-pressed="' + (on ? "true" : "false") + '"' +
+      ' aria-label="' + escapeHtml(label) + '"' +
+      ' title="' + (on ? "Following" : "Follow") + '">' +
+      '<span class="follow-cube" aria-hidden="true"><span class="cube-mark">' + (on ? "✓" : "+") + "</span></span></button>";
+  }
+
+  function refreshFollowButtons() {
+    document.querySelectorAll(".follow-block").forEach(function (button) {
+      var key = button.getAttribute("data-follow-key");
+      var on = state.follows.some(function (row) {
+        return row.platform + ":" + String(row.channel_key || "").toLowerCase() === key;
+      });
+      var name = button.getAttribute("data-follow-name") || "streamer";
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+      button.setAttribute("aria-label", (on ? "Following " : "Follow ") + name);
+      button.title = on ? "Following" : "Follow";
+      var mark = button.querySelector(".cube-mark");
+      if (mark) mark.textContent = on ? "✓" : "+";
+    });
+  }
+
+  function paintYourStreamers() {
+    var root = document.getElementById("your-streamers");
+    if (!root) return;
+    if (!state.session || !state.follows.length) {
+      root.hidden = true;
+      root.innerHTML = "";
+      return;
+    }
+    var tiles = state.follows.map(function (follow) {
+      var listed = state.streamers.filter(function (row) { return row.id === follow.streamer_id; })[0] || null;
+      return { follow: follow, listed: listed, live: !!(listed && isLive(listed)) };
+    }).sort(function (a, b) {
+      return (b.live ? 1 : 0) - (a.live ? 1 : 0) || String(a.follow.display_name || "").localeCompare(String(b.follow.display_name || ""));
+    });
+    root.hidden = false;
+    root.innerHTML = "<h2>Your streamers</h2>";
+    var row = document.createElement("div");
+    row.className = "your-row";
+    tiles.forEach(function (tile) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "your-tile" + (tile.live ? " is-live" : "");
+      var name = tile.follow.display_name || "Streamer";
+      button.innerHTML =
+        '<span class="your-block">' +
+          (tile.follow.avatar_url
+            ? '<img alt="" src="' + escapeHtml(tile.follow.avatar_url) + '" />'
+            : '<span class="avatar-fallback" style="width:100%;height:100%;border:0;border-radius:0">' + escapeHtml(initials(name)) + "</span>") +
+          (tile.live ? '<span class="live-badge">Live</span>' : "") +
+        '</span><span class="your-name">' + escapeHtml(name) + "</span>";
+      button.addEventListener("click", function () {
+        if (tile.listed) {
+          var card = document.getElementById("streamer-card-" + tile.listed.id);
+          if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+            return;
+          }
+        }
+        if (tile.follow.channel_url) window.open(tile.follow.channel_url, "_blank", "noopener");
+      });
+      row.appendChild(button);
+    });
+    root.appendChild(row);
+  }
+
+  async function loadFollows() {
+    if (!state.session) {
+      state.follows = [];
+      var chip = document.getElementById("filter-following");
+      if (chip) chip.setAttribute("aria-pressed", "false");
+      paintYourStreamers();
+      refreshFollowButtons();
+      return;
+    }
+    var res = await db.from("streamer_follows").select("id, user_id, platform, channel_key, streamer_id, display_name, avatar_url, channel_url, created_at");
+    state.follows = res.error ? [] : (res.data || []);
+    paintYourStreamers();
+    refreshFollowButtons();
+    if (followingOnly()) {
+      paintStreamers();
+      paintOutside();
+    }
+  }
+
+  function isDuplicateFollow(error) {
+    if (!error) return false;
+    return error.code === "23505" || /duplicate key|streamer_follows_user_platform_channel_key_key/i.test(error.message || "");
+  }
+
+  async function toggleStreamerFollow(identity) {
+    if (!identity || !identity.channel_url) {
+      showToast("That channel can't be followed yet.");
+      return;
+    }
+    if (!requireAuth("Log in to follow streamers.")) return;
+    var key = followMapKey(identity);
+    var existing = state.follows.filter(function (row) {
+      return row.platform + ":" + String(row.channel_key || "").toLowerCase() === key;
+    })[0];
+    var snapshot = state.follows.slice();
+    if (existing) {
+      state.follows = state.follows.filter(function (row) { return row.id !== existing.id; });
+      paintYourStreamers();
+      refreshFollowButtons();
+      if (followingOnly()) { paintStreamers(); paintOutside(); }
+      var removed = await db.from("streamer_follows").delete().eq("id", existing.id);
+      if (removed.error) {
+        state.follows = snapshot;
+        paintYourStreamers();
+        refreshFollowButtons();
+        if (followingOnly()) { paintStreamers(); paintOutside(); }
+        showToast(friendlyError(removed.error));
+      }
+      return;
+    }
+    var optimistic = {
+      id: "tmp-" + Date.now(),
+      user_id: state.session.user.id,
+      platform: identity.platform,
+      channel_key: identity.channel_key,
+      streamer_id: identity.streamer_id,
+      display_name: identity.display_name,
+      avatar_url: identity.avatar_url,
+      channel_url: identity.channel_url
+    };
+    state.follows = state.follows.concat([optimistic]);
+    paintYourStreamers();
+    refreshFollowButtons();
+    var inserted = await db.from("streamer_follows").insert({
+      user_id: state.session.user.id,
+      platform: identity.platform,
+      channel_key: identity.channel_key,
+      streamer_id: identity.streamer_id,
+      display_name: identity.display_name,
+      avatar_url: identity.avatar_url,
+      channel_url: identity.channel_url
+    }).select("id, user_id, platform, channel_key, streamer_id, display_name, avatar_url, channel_url, created_at").single();
+    if (inserted.error) {
+      if (isDuplicateFollow(inserted.error)) {
+        await loadFollows();
+        return;
+      }
+      state.follows = snapshot;
+      paintYourStreamers();
+      refreshFollowButtons();
+      showToast(friendlyError(inserted.error));
+      return;
+    }
+    state.follows = state.follows.map(function (row) {
+      return row.id === optimistic.id ? inserted.data : row;
+    });
+    paintYourStreamers();
+    refreshFollowButtons();
   }
 
   function heartSvg() {
@@ -1521,6 +1847,7 @@
     state.streamersLoaded = true;
     paintStreamers();
     paintLiveStrip();
+    paintYourStreamers();
     if (!options.quiet) paintStreamerSelf(false);
   }
 
@@ -1540,6 +1867,7 @@
       if (time && row.time_of_day !== time) return false;
       if (type && (row.mc_types || []).map(function (item) { return String(item).toLowerCase(); }).indexOf(type) === -1) return false;
       if (liveOnly && !isLive(row)) return false;
+      if (followingOnly() && !isFollowed(followIdentityFromListed(row))) return false;
       return true;
     }));
   }
@@ -1608,6 +1936,7 @@
     var card = document.createElement("article");
     var live = isLive(row);
     card.className = "card streamer-card" + (live ? " is-live" : "");
+    if (row.id) card.id = "streamer-card-" + row.id;
     var name = row.display_name || row.channel_handle;
     var types = (row.mc_types || []).map(typeLabel).join(", ");
     var watchUrl = streamWatchUrl(row);
@@ -1624,7 +1953,9 @@
         '<span class="platform ' + escapeHtml(row.platform) + '">' + escapeHtml(platformLabel(row.platform)) + "</span> " +
         (live && !thumb ? '<span class="live-badge">Live</span> ' : "") +
         (row.verified ? '<span class="verified">Verified</span>' : "") +
-        "</div></div>" +
+        "</div>" +
+      followBlockHtml(followIdentityFromListed(row), name) +
+      "</div>" +
       (live
         ? '<div class="live-detail"><a href="' + escapeHtml(watchUrl) + '" target="_blank" rel="noopener noreferrer">' +
             (row.live_title ? '<div class="live-title">' + escapeHtml(row.live_title) + "</div>" : "") +
@@ -2349,6 +2680,42 @@
   }
 
   document.addEventListener("click", function (event) {
+    var followBtn = event.target.closest(".follow-block");
+    if (followBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      var key = followBtn.getAttribute("data-follow-key") || "";
+      var parts = key.split(":");
+      var platform = parts[0];
+      var channelKey = parts.slice(1).join(":");
+      var listed = state.streamers.filter(function (row) {
+        var identity = followIdentityFromListed(row);
+        return identity && followMapKey(identity) === key;
+      })[0];
+      var outside = null;
+      if (!listed && outsideState.data) {
+        outside = outsideItems(outsideState.data).concat((outsideState.data.twitch || []), (outsideState.data.youtube || [])).filter(function (item) {
+          var identity = followIdentityFromOutside(item);
+          return identity && followMapKey(identity) === key;
+        })[0];
+      }
+      var identity = listed ? followIdentityFromListed(listed) : (outside ? followIdentityFromOutside(outside) : null);
+      if (!identity && platform && channelKey) {
+        var saved = state.follows.filter(function (row) {
+          return row.platform + ":" + String(row.channel_key || "").toLowerCase() === key;
+        })[0];
+        if (saved) identity = {
+          platform: saved.platform,
+          channel_key: saved.channel_key,
+          streamer_id: saved.streamer_id,
+          display_name: saved.display_name,
+          avatar_url: saved.avatar_url,
+          channel_url: saved.channel_url
+        };
+      }
+      toggleStreamerFollow(identity);
+      return;
+    }
     var retry = event.target.closest("[data-retry]");
     if (retry) {
       if (retry.getAttribute("data-retry") === "builds") loadBuilds();
@@ -2447,6 +2814,9 @@
     if (document.getElementById("filter-live").checked) {
       list = list.filter(function (item) { return !!item.is_live; });
     }
+    if (followingOnly()) {
+      list = list.filter(function (item) { return isFollowed(followIdentityFromOutside(item)); });
+    }
     return list;
   }
 
@@ -2471,7 +2841,9 @@
         '<span class="platform ' + platform + '">' + escapeHtml(platformLabel(platform)) + "</span> " +
         (item.minecraft ? '<span class="tag mc-tag">Minecraft</span> ' : "") +
         (item.is_live ? '<span class="live-badge">Live</span>' : "") +
-        "</div></div>" +
+        "</div>" +
+      followBlockHtml(followIdentityFromOutside(item), item.name || item.handle) +
+      "</div>" +
       (bits.length ? '<p class="bio">' + escapeHtml(bits.join(" · ")) + "</p>" : "") +
       '<p class="outside-note">Not on BlockBudds yet</p>' +
       '<div class="card-actions"></div>';
@@ -2534,6 +2906,17 @@
       else if (id === "filter-live") paintOutside();
     });
   });
+  document.getElementById("filter-following").addEventListener("click", function () {
+    if (!state.session || !state.me) {
+      this.setAttribute("aria-pressed", "false");
+      requireAuth("Log in to see the streamers you follow.");
+      return;
+    }
+    var on = this.getAttribute("aria-pressed") === "true";
+    this.setAttribute("aria-pressed", on ? "false" : "true");
+    paintStreamers();
+    paintOutside();
+  });
   document.getElementById("filter-toggle").addEventListener("click", function () {
     var form = document.getElementById("streamer-filters");
     form.classList.toggle("is-open");
@@ -2585,7 +2968,7 @@
     loadMe().then(function () {
       renderNav();
       syncComposer();
-      return Promise.all([loadBuilds(), loadStreamers()]);
+      return Promise.all([loadBuilds(), loadStreamers(), loadFollows()]);
     }).then(function () {
       if (!state.booted) {
         state.booted = true;
