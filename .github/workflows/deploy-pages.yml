@@ -39,6 +39,12 @@ jobs:
             ./ _site/
           test -f _site/CNAME
           test -f _site/index.html
+          test -f _site/manifest.webmanifest
+          test -f _site/sw.js
+          test -f _site/icons/icon-192.png
+          test -f _site/icons/icon-512.png
+          test -f _site/icons/icon-maskable-512.png
+          test -f _site/apple-touch-icon.png
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
