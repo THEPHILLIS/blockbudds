@@ -628,6 +628,13 @@
       font-size: 0.92rem;
     }
     .profile-stats strong { color: var(--ink); }
+    .name-search { display: flex; width: 100%; min-width: 0; }
+    #filter-name { width: 100%; min-width: 0; }
+    #filter-search { display: none; }
+    #streamer-results, #outside-results { scroll-margin-top: 72px; }
+    .signup-actions { flex-wrap: wrap; }
+    #signup-step-streamer h2 { font-size: 1rem; margin-bottom: 8px; }
+    #signup-step-streamer .desc { margin-bottom: 12px; }
     .profile .bio { color: var(--ink-dim); max-width: 50em; white-space: pre-wrap; }
     .profile-edit { margin-top: 18px; display: grid; gap: 12px; }
     .profile-builds { margin: 8px 0 32px; display: flex; flex-direction: column; gap: 16px; }
@@ -863,12 +870,33 @@
       .site-footer { margin-bottom: calc(16px + var(--bottom-nav-h)); }
       .nav-account .who { max-width: 5.5rem; }
       #view-streamers { padding-bottom: 8px; }
+      #view-account { padding-bottom: calc(28px + var(--bottom-nav-h)); }
       .streamer-grid { padding-bottom: 16px; }
       .outside-results { padding-bottom: calc(20px + var(--bottom-nav-h)); }
       #view-streamers:not(:has(#outside-results:not([hidden]))) .streamer-grid {
         padding-bottom: calc(20px + var(--bottom-nav-h));
       }
-      #filter-name-field { grid-column: 1; grid-row: 1; }
+      #filter-name-field { grid-column: 1; grid-row: 1; min-width: 0; }
+      #streamer-filters .filter-grid { grid-template-columns: minmax(0, 1fr) auto; }
+      #filter-search {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 12px;
+        flex: 0 0 auto;
+        touch-action: manipulation;
+      }
+      #streamer-filters .filter-tools { gap: 8px; }
+      #view-streamers.is-active {
+        display: flex;
+        flex-direction: column;
+      }
+      #view-streamers.is-searching #streamer-results { order: 3; }
+      #view-streamers.is-searching #outside-results { order: 4; }
+      #view-streamers.is-searching #streamer-self { order: 5; }
+      #streamer-results .empty { padding: 18px 12px; }
+      body:has(#filter-name:focus) .mobile-nav { visibility: hidden; }
       #streamer-filters { position: static; }
       #streamer-filters .filter-grid {
         grid-template-columns: 1fr auto;
@@ -1003,9 +1031,12 @@
           </div>
           <div class="field" id="filter-name-field">
             <label for="filter-name">Name</label>
-            <input id="filter-name" name="streamer-search" autocomplete="off" placeholder="Search names" enterkeyhint="search" />
+            <div class="name-search">
+              <input id="filter-name" name="streamer-search" type="text" autocomplete="off" placeholder="Search names" enterkeyhint="search" inputmode="search" />
+            </div>
           </div>
           <div class="filter-tools">
+            <button type="submit" class="btn btn-primary" id="filter-search">Search</button>
             <button type="button" class="btn btn-ghost" id="filter-toggle" aria-expanded="false" aria-controls="filter-extra-fields">Filters</button>
           </div>
           <div class="field filter-extra" id="filter-extra-fields">
@@ -1097,27 +1128,87 @@
       </form>
 
       <form id="form-signup" class="card auth-card" autocomplete="on" hidden>
-        <div class="field">
-          <label for="signup-email">Email</label>
-          <input id="signup-email" name="email" type="email" autocomplete="email" required maxlength="200" />
-        </div>
-        <div class="field" style="margin-top:12px">
-          <label for="signup-password">Password</label>
-          <input id="signup-password" name="new-password" type="password" autocomplete="new-password" required minlength="6" />
-          <span class="hint">At least 6 characters.</span>
-        </div>
-        <div class="field" style="margin-top:12px">
-          <label for="signup-username">Username</label>
-          <input id="signup-username" name="username" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" placeholder="e.g. oakwright" />
-          <span class="hint">3–20 letters, numbers, or underscores.</span>
-        </div>
         <p class="form-error" id="signup-error" role="alert"></p>
-        <div class="form-actions">
-          <button class="btn btn-primary" type="submit">Create account</button>
+        <div id="signup-step-account">
+          <div class="field">
+            <label for="signup-email">Email</label>
+            <input id="signup-email" name="email" type="email" autocomplete="email" required maxlength="200" />
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label for="signup-password">Password</label>
+            <input id="signup-password" name="new-password" type="password" autocomplete="new-password" required minlength="6" />
+            <span class="hint">At least 6 characters.</span>
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label for="signup-username">Username</label>
+            <input id="signup-username" name="username" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" placeholder="e.g. oakwright" />
+            <span class="hint">3–20 letters, numbers, or underscores.</span>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit" id="signup-continue">Continue</button>
+          </div>
+          <p class="auth-switch">
+            <button type="button" data-account="login">Already have an account? Log in</button>
+          </p>
         </div>
-        <p class="auth-switch">
-          <button type="button" data-account="login">Already have an account? Log in</button>
-        </p>
+        <div id="signup-step-streamer" hidden>
+          <h2>List yourself as a streamer</h2>
+          <p class="desc">Optional. Link Twitch, YouTube, or Kick and you'll be added to the directory. Skip this if you only want an account — you can list yourself later.</p>
+          <div class="form-grid">
+            <div class="field">
+              <label for="signup-platform">Platform</label>
+              <select id="signup-platform" name="stream-platform" autocomplete="off">
+                <option value="twitch">Twitch</option>
+                <option value="youtube">YouTube</option>
+                <option value="kick">Kick</option>
+                <option value="tiktok">TikTok</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="signup-handle">Channel handle</label>
+              <input id="signup-handle" name="channel-handle" autocomplete="off" maxlength="80" placeholder="yourchannel" enterkeyhint="done" />
+              <span class="hint">Leave this blank to skip.</span>
+            </div>
+            <div class="field span-2">
+              <label>Days</label>
+              <div class="choice-grid">
+                <label class="choice"><input type="checkbox" name="signup-day" value="Mon" /> Mon</label>
+                <label class="choice"><input type="checkbox" name="signup-day" value="Tue" /> Tue</label>
+                <label class="choice"><input type="checkbox" name="signup-day" value="Wed" /> Wed</label>
+                <label class="choice"><input type="checkbox" name="signup-day" value="Thu" /> Thu</label>
+                <label class="choice"><input type="checkbox" name="signup-day" value="Fri" /> Fri</label>
+                <label class="choice"><input type="checkbox" name="signup-day" value="Sat" /> Sat</label>
+                <label class="choice"><input type="checkbox" name="signup-day" value="Sun" /> Sun</label>
+              </div>
+            </div>
+            <div class="field">
+              <label for="signup-time">Time of day</label>
+              <select id="signup-time" name="stream-time" autocomplete="off">
+                <option value="">Not set</option>
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="late night">Late night</option>
+              </select>
+            </div>
+            <div class="field span-2">
+              <label>Minecraft types</label>
+              <div class="choice-grid">
+                <label class="choice"><input type="checkbox" name="signup-type" value="survival" /> Survival</label>
+                <label class="choice"><input type="checkbox" name="signup-type" value="creative" /> Creative</label>
+                <label class="choice"><input type="checkbox" name="signup-type" value="hardcore" /> Hardcore</label>
+                <label class="choice"><input type="checkbox" name="signup-type" value="modded" /> Modded</label>
+                <label class="choice"><input type="checkbox" name="signup-type" value="smp" /> SMP</label>
+                <label class="choice"><input type="checkbox" name="signup-type" value="minigames" /> Minigames</label>
+              </div>
+            </div>
+          </div>
+          <div class="form-actions signup-actions">
+            <button class="btn" type="button" id="signup-back">Back</button>
+            <button class="btn" type="submit" id="signup-skip">Skip</button>
+            <button class="btn btn-primary" type="submit" id="signup-create">Create account</button>
+          </div>
+        </div>
       </form>
 
       <form id="form-forgot" class="card auth-card" autocomplete="on" hidden>
@@ -1207,9 +1298,11 @@
     authReason: "",
     checkKind: "signup",
     pendingEmail: "",
+    signupStep: 1,
     booted: false,
     follows: []
   };
+  var PENDING_STREAMER_KEY = "bb-pending-streamer";
 
   var els = {
     feed: document.getElementById("feed"),
@@ -1665,6 +1758,10 @@
     var pair = copy[mode] || copy.login;
     els.accountTitle.textContent = pair[0];
     els.accountLead.textContent = pair[1];
+    if (mode === "signup" && state.signupStep === 2) {
+      els.accountTitle.textContent = "List yourself";
+      els.accountLead.textContent = "Optional. Link Twitch, YouTube, or Kick. Skip it if you only want an account.";
+    }
     if (state.authReason) {
       els.authReason.hidden = false;
       els.authReason.textContent = state.authReason;
@@ -1676,13 +1773,22 @@
     document.getElementById("form-signup").hidden = mode !== "signup";
     document.getElementById("form-forgot").hidden = mode !== "forgot";
     document.getElementById("form-reset").hidden = mode !== "reset";
+    var accountStep = document.getElementById("signup-step-account");
+    var streamerStep = document.getElementById("signup-step-streamer");
+    if (accountStep && streamerStep) {
+      accountStep.hidden = state.signupStep === 2;
+      streamerStep.hidden = state.signupStep !== 2;
+    }
     var check = document.getElementById("panel-check-email");
     check.hidden = mode !== "check-email";
     if (mode === "check-email") {
       var email = state.pendingEmail ? " (" + state.pendingEmail + ")" : "";
+      var pendingListing = false;
+      try { pendingListing = !!sessionStorage.getItem(PENDING_STREAMER_KEY); } catch (err) { pendingListing = false; }
       document.getElementById("check-email-copy").textContent = state.checkKind === "reset"
         ? "If an account exists for that email" + email + ", we sent a link to reset the password."
-        : "Check your email" + email + " and confirm your account, then log in.";
+        : "Check your email" + email + " and confirm your account, then log in." +
+          (pendingListing ? " Your streamer listing will be added when you log in." : "");
     }
   }
 
@@ -1911,6 +2017,9 @@
   }
 
   function paintStreamers() {
+    var view = document.getElementById("view-streamers");
+    var typedName = (document.getElementById("filter-name").value || "").trim();
+    if (view) view.classList.toggle("is-searching", typedName.length > 0);
     if (!state.streamersLoaded) {
       els.streamerResults.innerHTML = emptyBox("Loading streamers…");
       return;
@@ -1926,7 +2035,10 @@
       return;
     }
     if (!list.length) {
-      els.streamerResults.innerHTML = emptyBox("No streamers match every filter. Clear a filter and try again.");
+      var typed = (document.getElementById("filter-name").value || "").trim();
+      els.streamerResults.innerHTML = typed
+        ? '<p class="outside-status">No BlockBudds streamers match that name.</p>'
+        : emptyBox("No streamers match every filter. Clear a filter and try again.");
       return;
     }
     list.forEach(function (row) { els.streamerResults.appendChild(streamerCard(row)); });
@@ -2100,8 +2212,13 @@
     if (state.myStreamer) {
       result = await db.from("streamers").update(payload).eq("id", state.myStreamer.id).eq("profile_id", state.session.user.id);
     } else {
-      payload.profile_id = state.session.user.id;
-      result = await db.from("streamers").insert(payload);
+      result = await createMyStreamer({
+        platform: platform,
+        channel_handle: handle,
+        days: payload.days,
+        time_of_day: time,
+        mc_types: payload.mc_types
+      });
     }
     button.disabled = false;
     if (result.error) {
@@ -2389,6 +2506,95 @@
     }
   }
 
+  async function createMyStreamer(listing) {
+    if (!state.session || !state.me) return { error: { message: "Your profile isn't ready yet." } };
+    return db.from("streamers").insert({
+      profile_id: state.session.user.id,
+      display_name: (state.me.display_name || state.me.username || listing.channel_handle).trim(),
+      platform: listing.platform,
+      channel_handle: listing.channel_handle,
+      channel_url: channelUrl(listing.platform, listing.channel_handle),
+      avatar_url: state.me.avatar_url || null,
+      bio: state.me.bio || null,
+      days: listing.days || [],
+      time_of_day: listing.time_of_day || null,
+      mc_types: listing.mc_types || []
+    });
+  }
+
+  function stashPendingStreamer(listing) {
+    try { sessionStorage.setItem(PENDING_STREAMER_KEY, JSON.stringify(listing)); } catch (err) { /* private mode */ }
+  }
+
+  function clearPendingStreamer() {
+    try { sessionStorage.removeItem(PENDING_STREAMER_KEY); } catch (err) { /* private mode */ }
+  }
+
+  async function applyPendingStreamer() {
+    if (!state.session || !state.me) return;
+    var raw = null;
+    try { raw = sessionStorage.getItem(PENDING_STREAMER_KEY); } catch (err) { return; }
+    if (!raw) return;
+    if (state.myStreamer) {
+      clearPendingStreamer();
+      return;
+    }
+    var listing = null;
+    try { listing = JSON.parse(raw); } catch (err) { clearPendingStreamer(); return; }
+    if (!listing || !listing.channel_handle || !listing.platform) {
+      clearPendingStreamer();
+      return;
+    }
+    var result = await createMyStreamer(listing);
+    if (result.error) {
+      var blob = (result.error.code || "") + " " + (result.error.message || "");
+      if (result.error.code === "23505" || /duplicate|already/i.test(blob)) clearPendingStreamer();
+      return;
+    }
+    clearPendingStreamer();
+    showToast("You're on the list");
+    await loadStreamers();
+  }
+
+  async function exactCount(table, column, value) {
+    var head = await db.from(table).select("*", { count: "exact", head: true }).eq(column, value);
+    if (!head.error && head.count != null) return head.count;
+    var rows = await db.from(table).select(column).eq(column, value);
+    if (rows.error) return 0;
+    return (rows.data || []).length;
+  }
+
+  async function profileCounts(profileId) {
+    var rpc = await db.rpc("profile_follow_counts", { target: profileId });
+    var row = !rpc.error ? rpc.data : null;
+    if (typeof row === "string") {
+      try { row = JSON.parse(row); } catch (err) { row = null; }
+    }
+    if (row && typeof row === "object" && row.followers != null && row.following != null && row.streamers != null) {
+      return {
+        followers: Number(row.followers) || 0,
+        following: Number(row.following) || 0,
+        streamers: Number(row.streamers) || 0,
+        streamersKnown: true
+      };
+    }
+    var followers = await exactCount("follows", "following_id", profileId);
+    var following = await exactCount("follows", "follower_id", profileId);
+    var streamersKnown = false;
+    var streamers = 0;
+    if (state.session && state.session.user.id === profileId) {
+      streamersKnown = true;
+      streamers = await exactCount("streamer_follows", "user_id", profileId);
+      if (!streamers && state.follows.length) streamers = state.follows.length;
+    }
+    return {
+      followers: followers,
+      following: following,
+      streamers: streamers,
+      streamersKnown: streamersKnown
+    };
+  }
+
   async function renderProfile() {
     var token = ++profileToken;
     var id = state.profileId;
@@ -2405,8 +2611,7 @@
     }
     var profile = profileRes.data;
     var isSelf = !!(state.session && state.session.user.id === profile.id);
-    var followerRes = await db.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id);
-    var followingRes = await db.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", profile.id);
+    var counts = await profileCounts(profile.id);
     var buildsRes = await db.from("builds").select("*").eq("user_id", profile.id).order("created_at", { ascending: false });
     var streamerRes = await db.from("streamers").select("*").eq("profile_id", profile.id).maybeSingle();
     if (token !== profileToken) return;
@@ -2429,8 +2634,9 @@
           (streamer ? '<div style="margin-top:6px"><span class="platform ' + escapeHtml(streamer.platform) + '">' + escapeHtml(platformLabel(streamer.platform)) + "</span></div>" : "") +
         "</div></div>" +
         '<div class="profile-stats">' +
-          "<span><strong>" + (followerRes.count || 0) + "</strong> followers</span>" +
-          "<span><strong>" + (followingRes.count || 0) + "</strong> following</span>" +
+          "<span><strong>" + counts.followers + "</strong> " + (counts.followers === 1 ? "follower" : "followers") + "</span>" +
+          "<span><strong>" + counts.following + "</strong> following</span>" +
+          (counts.streamersKnown ? "<span><strong>" + counts.streamers + "</strong> " + (counts.streamers === 1 ? "streamer" : "streamers") + "</span>" : "") +
           "<span>Joined " + escapeHtml(formatDate(profile.created_at)) + "</span>" +
         "</div>" +
         (profile.bio ? '<p class="bio">' + escapeHtml(profile.bio) + "</p>" : '<p class="bio">No bio yet.</p>') +
@@ -2589,17 +2795,49 @@
     go("builds");
   }
 
+  function readSignupListing() {
+    var handle = document.getElementById("signup-handle").value.replace(/^@+/, "").trim();
+    if (!handle) return null;
+    if (handle.length > 80) return { error: "Channel handles can be at most 80 characters." };
+    var form = document.getElementById("form-signup");
+    return {
+      platform: document.getElementById("signup-platform").value,
+      channel_handle: handle,
+      days: checkedValues(form, "signup-day"),
+      time_of_day: document.getElementById("signup-time").value || null,
+      mc_types: checkedValues(form, "signup-type")
+    };
+  }
+
   async function onSignup(event) {
     event.preventDefault();
+    var errorEl = document.getElementById("signup-error");
+    errorEl.textContent = "";
+    if (state.signupStep !== 2) {
+      state.signupStep = 2;
+      renderAccount();
+      var handleInput = document.getElementById("signup-handle");
+      if (handleInput) handleInput.focus();
+      return;
+    }
+    var skip = !!(event.submitter && event.submitter.id === "signup-skip");
+    var listing = skip ? null : readSignupListing();
+    if (listing && listing.error) {
+      errorEl.textContent = listing.error;
+      return;
+    }
     var email = document.getElementById("signup-email").value.trim();
     var password = document.getElementById("signup-password").value;
     var username = document.getElementById("signup-username").value.trim();
-    var errorEl = document.getElementById("signup-error");
     if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+      state.signupStep = 1;
+      renderAccount();
       errorEl.textContent = "Username must be 3–20 letters, numbers, or underscores.";
       return;
     }
     if (password.length < 6) {
+      state.signupStep = 1;
+      renderAccount();
       errorEl.textContent = "Password must be at least 6 characters.";
       return;
     }
@@ -2609,11 +2847,15 @@
       return;
     }
     if (taken.data && taken.data.length) {
+      state.signupStep = 1;
+      renderAccount();
       errorEl.textContent = "That username is taken.";
       return;
     }
-    var button = event.target.querySelector('button[type="submit"]');
-    button.disabled = true;
+    var button = event.submitter && event.submitter.tagName === "BUTTON"
+      ? event.submitter
+      : document.getElementById("signup-create");
+    if (button) button.disabled = true;
     var result = await db.auth.signUp({
       email: email,
       password: password,
@@ -2622,7 +2864,7 @@
         emailRedirectTo: SITE_URL
       }
     });
-    button.disabled = false;
+    if (button) button.disabled = false;
     if (result.error) {
       errorEl.textContent = friendlyError(result.error);
       return;
@@ -2632,7 +2874,19 @@
       errorEl.textContent = "An account with that email already exists. Try logging in.";
       return;
     }
+    if (listing) stashPendingStreamer(listing);
+    else clearPendingStreamer();
+    state.signupStep = 1;
     if (result.data.session) {
+      state.session = result.data.session;
+      await loadMe();
+      if (listing && state.me) {
+        var created = await createMyStreamer(listing);
+        if (!created.error) {
+          clearPendingStreamer();
+          await loadStreamers();
+        }
+      }
       showToast("Welcome to BlockBudds");
       go("builds");
       return;
@@ -2731,6 +2985,7 @@
     if (accountBtn) {
       event.preventDefault();
       state.authReason = "";
+      if (accountBtn.getAttribute("data-account") === "signup") state.signupStep = 1;
       go("account", accountBtn.getAttribute("data-account"));
       return;
     }
@@ -2859,19 +3114,65 @@
     return card;
   }
 
+  function scrollSearchResultsIntoView() {
+    if (!window.matchMedia("(max-width: 680px)").matches) return;
+    var outside = document.getElementById("outside-results");
+    var target = outside && !outside.hidden ? outside : document.getElementById("streamer-results");
+    if (!target) return;
+    var top = target.getBoundingClientRect().top;
+    if (top < 64 || top > window.innerHeight * 0.4) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function maybeRevealSearchResults() {
+    var input = document.getElementById("filter-name");
+    if (input && document.activeElement === input) return;
+    scrollSearchResultsIntoView();
+  }
+
+  function commitNameSearch() {
+    var raw = document.getElementById("filter-name").value.trim();
+    clearTimeout(outsideTimer);
+    paintStreamers();
+    updateFilterToggle();
+    if (raw.length < 2 || raw.length > 50) {
+      if (outsideAbort) outsideAbort.abort();
+      outsideState = { key: "", loading: false, error: false, data: null };
+      paintOutside();
+      return;
+    }
+    var key = outsideQueryKey(raw);
+    if (outsideCache[key]) {
+      if (outsideAbort) outsideAbort.abort();
+      outsideState = { key: key, loading: false, error: false, data: outsideCache[key] };
+      paintOutside();
+      return;
+    }
+    fetchOutside(raw, key);
+  }
+
   function paintOutside() {
     var root = document.getElementById("outside-results");
     if (!root) return;
     var raw = document.getElementById("filter-name").value.trim();
-    if (raw.length < 2 || outsideState.error) {
+    if (raw.length < 2) {
       root.hidden = true;
       root.innerHTML = "";
+      return;
+    }
+    if (outsideState.error) {
+      root.hidden = false;
+      root.innerHTML = "<h2>More on Twitch &amp; YouTube</h2>" +
+        '<p class="outside-status">Couldn\'t search Twitch and YouTube. Check your connection and try again.</p>';
+      maybeRevealSearchResults();
       return;
     }
     root.hidden = false;
     root.innerHTML = "<h2>More on Twitch &amp; YouTube</h2>";
     if (outsideState.loading && !outsideState.data) {
       root.insertAdjacentHTML("beforeend", '<p class="outside-status">Searching Twitch and YouTube…</p>');
+      maybeRevealSearchResults();
       return;
     }
     var data = outsideState.data;
@@ -2888,15 +3189,23 @@
       root.insertAdjacentHTML("beforeend", '<p class="outside-status">' +
         (document.getElementById("filter-live").checked ? "No live channels match that search." : "No other channels found.") +
         "</p>");
+      maybeRevealSearchResults();
       return;
     }
     var grid = document.createElement("div");
     grid.className = "outside-grid";
     list.forEach(function (item) { grid.appendChild(outsideCard(item)); });
     root.appendChild(grid);
+    maybeRevealSearchResults();
   }
 
-  els.filters.addEventListener("submit", function (event) { event.preventDefault(); });
+  els.filters.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var input = document.getElementById("filter-name");
+    if (input && document.activeElement === input) input.blur();
+    commitNameSearch();
+    scrollSearchResultsIntoView();
+  });
   ["input", "change"].forEach(function (evt) {
     els.filters.addEventListener(evt, function (event) {
       paintStreamers();
@@ -2936,6 +3245,11 @@
   updateFilterToggle();
   document.getElementById("form-login").addEventListener("submit", onLogin);
   document.getElementById("form-signup").addEventListener("submit", onSignup);
+  document.getElementById("signup-back").addEventListener("click", function () {
+    state.signupStep = 1;
+    document.getElementById("signup-error").textContent = "";
+    renderAccount();
+  });
   document.getElementById("form-forgot").addEventListener("submit", onForgot);
   document.getElementById("form-reset").addEventListener("submit", onReset);
   window.addEventListener("hashchange", applyHash);
@@ -2969,6 +3283,8 @@
       renderNav();
       syncComposer();
       return Promise.all([loadBuilds(), loadStreamers(), loadFollows()]);
+    }).then(function () {
+      return applyPendingStreamer();
     }).then(function () {
       if (!state.booted) {
         state.booted = true;
