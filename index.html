@@ -826,6 +826,62 @@
     .self-card { padding: 16px 18px; margin: 0 0 16px; }
     .self-card h2 { font-size: 1rem; margin-bottom: 8px; }
     .self-card p { color: var(--ink-dim); margin-bottom: 12px; }
+    .self-box { padding: 0; overflow: hidden; }
+    .self-toggle {
+      width: 100%;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 14px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-weight: 750;
+      text-align: left;
+      cursor: pointer;
+    }
+    .self-toggle:focus-visible {
+      outline: 2px solid var(--grass);
+      outline-offset: -2px;
+    }
+    .self-toggle-copy { min-width: 0; }
+    .self-toggle-copy small {
+      display: block;
+      color: var(--ink-mute);
+      font-size: 0.78rem;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .self-plus {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: #141910;
+      color: #c6f56a;
+      border: 1px solid #3d7a24;
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .self-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.22s ease;
+    }
+    .self-box.is-open .self-panel { grid-template-rows: 1fr; }
+    .self-panel-inner { overflow: hidden; min-height: 0; }
+    .self-box.is-open .self-panel-inner { padding: 0 14px 14px; }
+    .self-panel .form-grid { margin-top: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      .self-panel { transition: none; }
+    }
 
     /* Toast + footer */
     .toast {
@@ -1306,6 +1362,7 @@
     minigames: "Minigames"
   };
   var DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  var selfFormOpen = false;
   var TYPES = ["survival", "creative", "hardcore", "modded", "smp", "minigames"];
   var STOP_WORDS = { only: true, the: true, a: true, an: true, and: true, just: true, of: true };
 
@@ -2010,17 +2067,35 @@
     return /schema cache|pgrst204|42703|42501|permission denied|could not find/.test(blob);
   }
 
+  var OPTIONAL_HANDLE_COLUMNS = ["twitch_handle", "youtube_handle", "kick_handle", "tiktok_handle"];
+
+  function unavailableHandleColumn(error) {
+    if (!error) return "";
+    var blob = ((error.message || "") + " " + (error.details || "") + " " + (error.hint || "") + " " + (error.code || "")).toLowerCase();
+    if (error.code === "23514" || /check constraint|violates/.test(blob)) return "";
+    if (!/schema cache|pgrst204|42703|42501|permission denied|could not find/.test(blob)) return "";
+    for (var i = 0; i < OPTIONAL_HANDLE_COLUMNS.length; i++) {
+      if (blob.indexOf(OPTIONAL_HANDLE_COLUMNS[i]) !== -1) return OPTIONAL_HANDLE_COLUMNS[i];
+    }
+    return "";
+  }
+
   async function writeStreamer(mode, payload, id) {
     var sent = Object.assign({}, payload);
-    var result = mode === "update"
-      ? await db.from("streamers").update(sent).eq("id", id).eq("profile_id", state.session.user.id)
-      : await db.from("streamers").insert(sent);
-    if (result.error && sent.tiktok_handle !== undefined && tiktokColumnUnavailable(result.error)) {
-      delete sent.tiktok_handle;
+    var deferred = false;
+    var result;
+    for (var attempt = 0; attempt < 6; attempt++) {
       result = mode === "update"
         ? await db.from("streamers").update(sent).eq("id", id).eq("profile_id", state.session.user.id)
         : await db.from("streamers").insert(sent);
-      if (!result.error && payload.tiktok_handle) result.tiktokDeferred = true;
+      var missing = result.error ? unavailableHandleColumn(result.error) : "";
+      if (!missing) break;
+      if (sent[missing]) deferred = true;
+      delete sent[missing];
+    }
+    if (result && !result.error && deferred) {
+      result.linksDeferred = true;
+      if (payload.tiktok_handle) result.tiktokDeferred = true;
     }
     return result;
   }
@@ -2343,10 +2418,20 @@
     var platform = mine && mine.platform ? mine.platform : "twitch";
     var handle = mine && mine.channel_handle ? mine.channel_handle : "";
     var tiktok = mine && mine.tiktok_handle ? mine.tiktok_handle : "";
+    var barLabel = mine ? "Your streamer listing" : "List yourself as a streamer";
+    var barDetail = mine ? platformLabel(platform) + " · " + handle : "";
     root.innerHTML =
-      '<form id="self-form" class="card self-card" autocomplete="off">' +
-        "<h2>" + (mine ? "Your streamer listing" : "List yourself") + "</h2>" +
-        "<p>" + (mine ? "Update the channel linked to your profile, or remove it." : "Add your channel. It is linked to your profile, and only you can edit it.") + "</p>" +
+      '<div id="self-box" class="card self-box' + (selfFormOpen ? " is-open" : "") + '">' +
+        '<button type="button" class="self-toggle" id="self-toggle" aria-expanded="' + (selfFormOpen ? "true" : "false") + '" aria-controls="self-panel">' +
+          '<span class="self-toggle-copy"><span>' + escapeHtml(barLabel) + '</span>' +
+            (barDetail ? "<small>" + escapeHtml(barDetail) + "</small>" : "") +
+          "</span>" +
+          '<span class="self-plus" aria-hidden="true">' + (selfFormOpen ? "–" : "+") + '</span>' +
+        '</button>' +
+        '<div id="self-panel" class="self-panel">' +
+          '<div class="self-panel-inner">' +
+      '<form id="self-form" autocomplete="off">' +
+        "<p>" + (mine ? "Update the channel linked to your profile, or remove it." : "It is linked to your profile, and only you can edit it.") + "</p>" +
         '<div class="form-grid">' +
           '<div class="field"><label for="self-platform">Platform</label>' +
             '<select id="self-platform" name="stream-platform">' +
@@ -2373,10 +2458,30 @@
           '<button class="btn btn-primary" type="submit">' + (mine ? "Save listing" : "Add me") + "</button>" +
           (mine ? '<button class="btn btn-ghost" type="button" id="self-remove">Remove listing</button>' : "") +
         "</div>" +
-      "</form>";
+      "</form>" +
+          "</div>" +
+        "</div>" +
+      "</div>";
+    applySelfOpen();
+    document.getElementById("self-toggle").addEventListener("click", function () {
+      selfFormOpen = !selfFormOpen;
+      applySelfOpen();
+    });
     document.getElementById("self-form").addEventListener("submit", saveStreamer);
     var remove = document.getElementById("self-remove");
     if (remove) remove.addEventListener("click", removeStreamer);
+  }
+
+  function applySelfOpen() {
+    var box = document.getElementById("self-box");
+    var toggle = document.getElementById("self-toggle");
+    var panel = document.getElementById("self-panel");
+    if (!box || !toggle || !panel) return;
+    box.classList.toggle("is-open", selfFormOpen);
+    toggle.setAttribute("aria-expanded", selfFormOpen ? "true" : "false");
+    if ("inert" in panel) panel.inert = !selfFormOpen;
+    var mark = toggle.querySelector(".self-plus");
+    if (mark) mark.textContent = selfFormOpen ? "–" : "+";
   }
 
   function optionList(values, selected, labelFn) {
@@ -2422,6 +2527,7 @@
       mc_types: checkedValues(form, "self-type"),
       tiktok_handle: tiktok
     };
+    payload[platform + "_handle"] = platform === "twitch" || platform === "kick" ? handle.toLowerCase() : handle;
     var button = form.querySelector('button[type="submit"]');
     button.disabled = true;
     var result = state.myStreamer
@@ -2442,6 +2548,7 @@
     showToast(result.tiktokDeferred
       ? "Listing saved. The TikTok link isn't stored until the database update."
       : (state.myStreamer ? "Listing saved" : "You're on the list"));
+    selfFormOpen = false;
     await loadStreamers();
     paintStreamerSelf(true);
   }
@@ -2455,6 +2562,7 @@
       return;
     }
     showToast("Listing removed");
+    selfFormOpen = false;
     await loadStreamers();
     paintStreamerSelf(true);
   }
@@ -2901,7 +3009,166 @@
         list.appendChild(postCard(build, false, { allowDelete: isSelf, authorName: name, authorId: profile.id }));
       });
     }
+    if (isSelf) els.profileRoot.appendChild(streamerLinksBox(streamer));
     els.profileRoot.appendChild(list);
+  }
+
+  var LINK_PLATFORMS = ["twitch", "youtube", "kick", "tiktok"];
+  var linksFormOpen = false;
+
+  function cleanPlatformHandle(platform, value) {
+    var handle = String(value || "").trim().replace(/^@+/, "");
+    if (platform === "twitch" || platform === "kick") handle = handle.toLowerCase();
+    return handle;
+  }
+
+  function platformHandleError(platform, value) {
+    var handle = cleanPlatformHandle(platform, value);
+    if (!handle) return "";
+    if (platform === "tiktok") return tiktokHandleError(handle);
+    if (handle.length > 80) return platformLabel(platform) + " handles are at most 80 characters.";
+    if (/\s/.test(handle)) return platformLabel(platform) + " handles can't include spaces.";
+    return "";
+  }
+
+  function linksFromRow(row) {
+    var links = { twitch: "", youtube: "", kick: "", tiktok: "" };
+    if (!row) return links;
+    LINK_PLATFORMS.forEach(function (key) {
+      if (row[key + "_handle"]) links[key] = cleanPlatformHandle(key, row[key + "_handle"]);
+      else if (row.platform === key) links[key] = cleanPlatformHandle(key, row.channel_handle);
+    });
+    return links;
+  }
+
+  function primaryFromLinks(links) {
+    for (var i = 0; i < LINK_PLATFORMS.length; i++) {
+      var key = LINK_PLATFORMS[i];
+      if (links[key]) return { platform: key, handle: links[key] };
+    }
+    return null;
+  }
+
+  function streamerLinksBox(row) {
+    var links = linksFromRow(row);
+    var summary = LINK_PLATFORMS.filter(function (key) { return links[key]; }).map(function (key) {
+      return platformLabel(key);
+    }).join(", ");
+    var box = document.createElement("div");
+    box.className = "card self-box links-box" + (linksFormOpen ? " is-open" : "");
+    box.innerHTML =
+      '<button type="button" class="self-toggle" id="links-toggle" aria-expanded="' + (linksFormOpen ? "true" : "false") + '" aria-controls="links-panel">' +
+        '<span class="self-toggle-copy"><span>Edit streamer links</span>' +
+          "<small>" + escapeHtml(summary || "Twitch, YouTube, Kick, TikTok") + "</small>" +
+        "</span>" +
+        '<span class="self-plus" aria-hidden="true">' + (linksFormOpen ? "–" : "+") + "</span>" +
+      "</button>" +
+      '<div id="links-panel" class="self-panel"><div class="self-panel-inner">' +
+        '<form id="links-form" autocomplete="off">' +
+          "<p>Add a handle, change it, or clear it. A Twitch or YouTube change refreshes live status.</p>" +
+          '<div class="form-grid">' +
+            LINK_PLATFORMS.map(function (key) {
+              return '<div class="field"><label for="link-' + key + '">' + escapeHtml(platformLabel(key)) + "</label>" +
+                '<input id="link-' + key + '" name="' + key + '-handle" autocomplete="off" maxlength="' + (key === "tiktok" ? "24" : "80") + '" value="' + escapeHtml(links[key]) + '" placeholder="optional" /></div>';
+            }).join("") +
+          "</div>" +
+          '<p class="form-error" id="links-error" role="alert"></p>' +
+          '<div class="form-actions">' +
+            '<button class="btn btn-primary" type="submit">Save links</button>' +
+            (row ? '<button class="btn btn-ghost" type="button" id="links-remove">Remove listing</button>' : "") +
+          "</div>" +
+        "</form>" +
+      "</div></div>";
+    var toggle = box.querySelector("#links-toggle");
+    var panel = box.querySelector("#links-panel");
+    function applyLinksOpen() {
+      box.classList.toggle("is-open", linksFormOpen);
+      toggle.setAttribute("aria-expanded", linksFormOpen ? "true" : "false");
+      if ("inert" in panel) panel.inert = !linksFormOpen;
+      var mark = toggle.querySelector(".self-plus");
+      if (mark) mark.textContent = linksFormOpen ? "–" : "+";
+    }
+    applyLinksOpen();
+    toggle.addEventListener("click", function () {
+      linksFormOpen = !linksFormOpen;
+      applyLinksOpen();
+    });
+    box.querySelector("#links-form").addEventListener("submit", function (event) {
+      saveStreamerLinks(event, row);
+    });
+    var remove = box.querySelector("#links-remove");
+    if (remove) remove.addEventListener("click", function () { removeStreamer(); });
+    return box;
+  }
+
+  async function saveStreamerLinks(event, row) {
+    event.preventDefault();
+    if (!requireAuth("Log in to edit your streamer links.")) return;
+    var errorEl = document.getElementById("links-error");
+    errorEl.textContent = "";
+    var links = {};
+    for (var i = 0; i < LINK_PLATFORMS.length; i++) {
+      var key = LINK_PLATFORMS[i];
+      var raw = document.getElementById("link-" + key).value;
+      var problem = platformHandleError(key, raw);
+      if (problem) {
+        errorEl.textContent = problem;
+        return;
+      }
+      links[key] = cleanPlatformHandle(key, raw);
+    }
+    var primary = primaryFromLinks(links);
+    if (!primary) {
+      if (!row) {
+        errorEl.textContent = "Add at least one handle.";
+        return;
+      }
+      if (!window.confirm("Remove your streamer listing?")) return;
+      var removed = await db.from("streamers").delete().eq("id", row.id).eq("profile_id", state.session.user.id);
+      if (removed.error) {
+        errorEl.textContent = friendlyError(removed.error);
+        return;
+      }
+      linksFormOpen = false;
+      selfFormOpen = false;
+      showToast("Listing removed");
+      await loadStreamers();
+      renderProfile();
+      return;
+    }
+    var payload = {
+      display_name: (state.me.display_name || state.me.username || primary.handle).trim(),
+      platform: primary.platform,
+      channel_handle: primary.handle,
+      channel_url: channelUrl(primary.platform, primary.handle),
+      avatar_url: state.me.avatar_url || null,
+      bio: state.me.bio || null,
+      twitch_handle: links.twitch || null,
+      youtube_handle: links.youtube || null,
+      kick_handle: links.kick || null,
+      tiktok_handle: links.tiktok || null
+    };
+    var button = event.target.querySelector('button[type="submit"]');
+    button.disabled = true;
+    var result = row
+      ? await writeStreamer("update", payload, row.id)
+      : await writeStreamer("insert", Object.assign({
+          profile_id: state.session.user.id,
+          days: [],
+          time_of_day: null,
+          mc_types: []
+        }, payload));
+    button.disabled = false;
+    if (result.error) {
+      errorEl.textContent = friendlyError(result.error);
+      return;
+    }
+    linksFormOpen = false;
+    showToast(result.linksDeferred
+      ? "Saved your main channel. The database update is needed before every platform is stored."
+      : "Streamer links saved");
+    await loadStreamers();
+    renderProfile();
   }
 
   function profileEditor(profile) {
