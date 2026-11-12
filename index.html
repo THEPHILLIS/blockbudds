@@ -11,6 +11,12 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#7ed321" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlockBudds" />
   <meta property="og:title" content="BlockBudds" />
   <meta property="og:description" content="BlockBudds — a social space for Minecraft builds and streamers." />
   <meta property="og:image" content="https://blockbudds.com/og-image.png" />
@@ -965,6 +971,35 @@
       text-align: center;
     }
 
+    .install-prompt {
+      position: sticky;
+      top: var(--header-h);
+      z-index: 35;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+      width: min(1080px, calc(100% - 32px));
+      margin: 10px auto 0;
+      padding: 10px 12px;
+      background: #1b2118;
+      border: 1px solid #3d7a24;
+      border-radius: 10px;
+      box-shadow: 3px 3px 0 #243314;
+    }
+    .install-prompt[hidden] { display: none; }
+    .install-prompt p {
+      flex: 1 1 180px;
+      margin: 0;
+      font-size: 0.92rem;
+    }
+    .install-prompt .btn { min-height: 36px; padding: 6px 12px; }
+    .install-prompt .btn[hidden] { display: none; }
+    .install-actions { display: flex; gap: 8px; flex: 0 0 auto; }
+    @media (display-mode: standalone) {
+      .install-prompt { display: none; }
+    }
+
     .mobile-nav { display: none; }
 
     @media (max-width: 900px) {
@@ -1083,6 +1118,14 @@
       <div id="nav-account" class="nav-account"></div>
     </div>
   </header>
+
+  <div id="install-prompt" class="install-prompt" hidden>
+    <p id="install-copy">Install BlockBudds on your home screen.</p>
+    <div class="install-actions">
+      <button type="button" class="btn btn-primary" id="install-go">Install</button>
+      <button type="button" class="btn btn-ghost" id="install-dismiss">Not now</button>
+    </div>
+  </div>
 
   <main id="app" class="wrap">
     <section id="view-builds" class="view is-active" data-view="builds">
@@ -3897,6 +3940,72 @@
     });
     }, 0);
   });
+
+  var INSTALL_KEY = "blockbudds-install-v1";
+  var installEvent = null;
+
+  function installStandalone() {
+    return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  }
+
+  function installSeen() {
+    try { return localStorage.getItem(INSTALL_KEY) === "1"; } catch (err) { return true; }
+  }
+
+  function markInstallSeen() {
+    try { localStorage.setItem(INSTALL_KEY, "1"); } catch (err) {}
+  }
+
+  function showInstallPrompt(kind) {
+    if (installSeen() || installStandalone()) return;
+    var bar = document.getElementById("install-prompt");
+    var copy = document.getElementById("install-copy");
+    var go = document.getElementById("install-go");
+    if (!bar || !copy || !go) return;
+    markInstallSeen();
+    if (kind === "ios") {
+      copy.textContent = "Tap Share, then Add to Home Screen.";
+      go.hidden = true;
+    } else {
+      copy.textContent = "Install BlockBudds on your home screen.";
+      go.hidden = false;
+    }
+    bar.hidden = false;
+  }
+
+  var dismissInstall = document.getElementById("install-dismiss");
+  if (dismissInstall) {
+    dismissInstall.addEventListener("click", function () {
+      markInstallSeen();
+      document.getElementById("install-prompt").hidden = true;
+    });
+  }
+  var goInstall = document.getElementById("install-go");
+  if (goInstall) {
+    goInstall.addEventListener("click", function () {
+      markInstallSeen();
+      document.getElementById("install-prompt").hidden = true;
+      if (!installEvent) return;
+      installEvent.prompt();
+      installEvent.userChoice.finally(function () { installEvent = null; });
+    });
+  }
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+    installEvent = event;
+    showInstallPrompt("native");
+  });
+  window.setTimeout(function () {
+    if (installEvent || installSeen() || installStandalone()) return;
+    var ua = window.navigator.userAgent || "";
+    var ios = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var safari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|Chrome/i.test(ua);
+    if (ios && safari) showInstallPrompt("ios");
+  }, 1200);
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+  }
 })();
 
   </script>
