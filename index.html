@@ -7,7 +7,7 @@
   <title>BlockBudds</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&amp;display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&amp;family=Press+Start+2P&amp;display=swap" rel="stylesheet" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="/favicon.png" type="image/png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
@@ -557,6 +557,13 @@
       text-overflow: ellipsis;
     }
     .streamer-top { align-items: flex-start; }
+    .streamer-top > div { flex: 1; min-width: 0; }
+    .name-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
     .streamer-card {
       padding: 16px;
       display: flex;
@@ -640,7 +647,9 @@
       border-color: var(--panel);
       box-shadow: 0 0 0 1px var(--line);
     }
+    .profile-head > div { min-width: 0; }
     .profile-head h2 { font-size: 1.6rem; letter-spacing: -0.03em; }
+    .profile-head .name-line { gap: 8px; }
     .profile-stats {
       display: flex;
       flex-wrap: wrap;
@@ -718,11 +727,58 @@
       color: var(--ink);
     }
     .verified {
-      color: var(--gold);
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      height: 22px;
+      padding: 2px;
+      background: #7ed321;
+      line-height: 0;
+      cursor: help;
+      outline: none;
+      clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px), 0 3px);
+    }
+    .verified-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 18px;
+      padding: 0 5px 0 3px;
+      background: #14210f;
+      color: #d4ff86;
+      clip-path: polygon(2px 0, calc(100% - 2px) 0, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 0 calc(100% - 2px), 0 2px);
+      font-family: "Press Start 2P", var(--font);
+      font-size: 7px;
+      font-weight: 400;
+      letter-spacing: 0;
+      line-height: 1;
+      text-transform: none;
+    }
+    .verified svg { display: block; shape-rendering: crispEdges; flex: 0 0 auto; }
+    .verified:focus-visible { outline: 2px solid #d4ff86; outline-offset: 3px; }
+    .verified:hover::after,
+    .verified:focus-visible::after {
+      content: "Verified BlockBudds streamer";
+      position: absolute;
+      left: 0;
+      top: calc(100% + 8px);
+      z-index: 5;
+      width: max-content;
+      max-width: min(220px, 70vw);
+      padding: 5px 8px;
+      background: #10140f;
+      color: #eef3ea;
+      border: 2px solid #7ed321;
+      box-shadow: 3px 3px 0 #3d7a24;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: 0;
+      text-transform: none;
+      white-space: normal;
+      pointer-events: none;
     }
     .live-badge {
       display: inline-flex;
@@ -2313,6 +2369,19 @@
     list.forEach(function (row) { els.streamerResults.appendChild(streamerCard(row)); });
   }
 
+  function verifiedBadgeHtml() {
+    return '<span class="verified" tabindex="0" role="img" aria-label="Verified BlockBudds streamer">' +
+      '<span class="verified-pill">' +
+        '<svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">' +
+          '<rect x="2" y="3" width="8" height="7" fill="#2a4a16"/>' +
+          '<rect x="0" y="0" width="8" height="8" fill="#4ea318"/>' +
+          '<rect x="0" y="0" width="8" height="3" fill="#d4ff86"/>' +
+          '<rect x="0" y="3" width="3" height="5" fill="#c6f56a"/>' +
+          '<rect x="5" y="3" width="3" height="5" fill="#2f6b12"/>' +
+        "</svg>VERIFIED" +
+      "</span></span>";
+  }
+
   function streamerCard(row) {
     var card = document.createElement("article");
     var live = isLive(row);
@@ -2330,10 +2399,11 @@
             '<img alt="" src="' + escapeHtml(thumb) + '" /><span class="live-badge">Live</span></a>'
         : "") +
       '<div class="streamer-top">' + avatarHtml(name, row.avatar_url) +
-        "<div><h3>" + escapeHtml(name) + "</h3>" +
+        '<div><div class="name-line"><h3>' + escapeHtml(name) + "</h3>" +
+        (row.verified ? verifiedBadgeHtml() : "") +
+        "</div>" +
         '<span class="platform ' + escapeHtml(row.platform) + '">' + escapeHtml(platformLabel(row.platform)) + "</span> " +
         (live && !thumb ? '<span class="live-badge">Live</span> ' : "") +
-        (row.verified ? '<span class="verified">Verified</span>' : "") +
         "</div>" +
       followBlockHtml(followIdentityFromListed(row), name) +
       "</div>" +
@@ -2946,7 +3016,9 @@
       '<div class="profile-banner"></div>' +
       '<div class="profile-main">' +
         '<div class="profile-head">' + avatarHtml(name, profile.avatar_url) +
-          "<div><h2>" + escapeHtml(name) + "</h2>" +
+          '<div><div class="name-line"><h2>' + escapeHtml(name) + "</h2>" +
+          (streamer && streamer.verified ? verifiedBadgeHtml() : "") +
+          "</div>" +
           '<div style="color:var(--ink-mute);font-size:.9rem;margin-top:4px">@' + escapeHtml(profile.username) + "</div>" +
           (streamer ? '<div style="margin-top:6px"><span class="platform ' + escapeHtml(streamer.platform) + '">' + escapeHtml(platformLabel(streamer.platform)) + "</span></div>" : "") +
         "</div></div>" +
