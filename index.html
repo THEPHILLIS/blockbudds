@@ -817,6 +817,12 @@
       text-overflow: ellipsis;
     }
     .platform.tiktok { background: #111; color: #fff; box-shadow: inset 0 0 0 1px #25f4ee; }
+    .btn-tiktok {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-tiktok .tiktok-icon { width: 16px; height: 16px; flex-shrink: 0; }
     .self-card { padding: 16px 18px; margin: 0 0 16px; }
     .self-card h2 { font-size: 1rem; margin-bottom: 8px; }
     .self-card p { color: var(--ink-dim); margin-bottom: 12px; }
@@ -1190,6 +1196,11 @@
               <label for="signup-handle">Channel handle</label>
               <input id="signup-handle" name="channel-handle" autocomplete="off" maxlength="80" placeholder="yourchannel" enterkeyhint="done" />
               <span class="hint">Leave this blank to skip.</span>
+            </div>
+            <div class="field span-2">
+              <label for="signup-tiktok">TikTok handle</label>
+              <input id="signup-tiktok" name="tiktok-handle" autocomplete="off" maxlength="24" placeholder="optional" />
+              <span class="hint">Optional link only. Letters, numbers, dots, or underscores. TikTok has no live badge.</span>
             </div>
             <div class="field span-2">
               <label>Days</label>
@@ -1942,8 +1953,76 @@
   }
 
   function isLive(row) {
-    if (!row) return false;
+    if (!row || row.platform === "tiktok") return false;
     return row.is_live === true || row.is_live === "true" || row.is_live === 1;
+  }
+
+  function cleanTikTokHandle(value) {
+    return String(value || "").trim().replace(/^@+/, "");
+  }
+
+  function tiktokHandleError(value) {
+    var handle = cleanTikTokHandle(value);
+    if (!handle) return "";
+    if (!/^[A-Za-z0-9._]{1,24}$/.test(handle)) {
+      return "TikTok handles use letters, numbers, dots, or underscores, and are at most 24 characters.";
+    }
+    return "";
+  }
+
+  function tiktokHandleOf(row) {
+    if (!row) return "";
+    var fromColumn = cleanTikTokHandle(row.tiktok_handle);
+    if (fromColumn && !tiktokHandleError(fromColumn)) return fromColumn;
+    if (row.platform === "tiktok") {
+      var fromChannel = cleanTikTokHandle(row.channel_handle);
+      if (fromChannel && !tiktokHandleError(fromChannel)) return fromChannel;
+    }
+    return "";
+  }
+
+  function tiktokIconSvg() {
+    return '<svg class="tiktok-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14.6 3.2c.5 2.6 1.9 4.4 4.4 4.7v2.7a8 8 0 0 1-4.4-1.3v6.8a6.2 6.2 0 1 1-6.2-6.2c.3 0 .6 0 .9.1v2.8a3.4 3.4 0 1 0 2.4 3.3V3.2h2.9z"/></svg>';
+  }
+
+  function tiktokButton(handle) {
+    if (!handle) return null;
+    var link = document.createElement("a");
+    link.className = "btn btn-ghost btn-tiktok";
+    link.href = "https://www.tiktok.com/@" + handle;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.setAttribute("aria-label", "TikTok @" + handle);
+    link.innerHTML = tiktokIconSvg() + "<span>TikTok</span>";
+    return link;
+  }
+
+  function appendTikTokButton(parent, row) {
+    var button = tiktokButton(tiktokHandleOf(row));
+    if (button && parent) parent.appendChild(button);
+  }
+
+  function tiktokColumnUnavailable(error) {
+    if (!error) return false;
+    var blob = ((error.message || "") + " " + (error.details || "") + " " + (error.hint || "") + " " + (error.code || "")).toLowerCase();
+    if (blob.indexOf("tiktok_handle") === -1) return false;
+    if (error.code === "23514" || /check constraint|violates/.test(blob)) return false;
+    return /schema cache|pgrst204|42703|42501|permission denied|could not find/.test(blob);
+  }
+
+  async function writeStreamer(mode, payload, id) {
+    var sent = Object.assign({}, payload);
+    var result = mode === "update"
+      ? await db.from("streamers").update(sent).eq("id", id).eq("profile_id", state.session.user.id)
+      : await db.from("streamers").insert(sent);
+    if (result.error && sent.tiktok_handle !== undefined && tiktokColumnUnavailable(result.error)) {
+      delete sent.tiktok_handle;
+      result = mode === "update"
+        ? await db.from("streamers").update(sent).eq("id", id).eq("profile_id", state.session.user.id)
+        : await db.from("streamers").insert(sent);
+      if (!result.error && payload.tiktok_handle) result.tiktokDeferred = true;
+    }
+    return result;
   }
 
   function httpUrl(value) {
@@ -2230,6 +2309,7 @@
       link.textContent = "Watch";
       actions.appendChild(link);
     }
+    appendTikTokButton(actions, row);
     return card;
   }
 
@@ -2262,6 +2342,7 @@
     var time = mine && mine.time_of_day ? mine.time_of_day : "";
     var platform = mine && mine.platform ? mine.platform : "twitch";
     var handle = mine && mine.channel_handle ? mine.channel_handle : "";
+    var tiktok = mine && mine.tiktok_handle ? mine.tiktok_handle : "";
     root.innerHTML =
       '<form id="self-form" class="card self-card" autocomplete="off">' +
         "<h2>" + (mine ? "Your streamer listing" : "List yourself") + "</h2>" +
@@ -2273,6 +2354,9 @@
             "</select></div>" +
           '<div class="field"><label for="self-handle">Channel handle</label>' +
             '<input id="self-handle" name="channel-handle" autocomplete="off" maxlength="80" required value="' + escapeHtml(handle) + '" placeholder="thephillis" /></div>' +
+          '<div class="field span-2"><label for="self-tiktok">TikTok handle</label>' +
+            '<input id="self-tiktok" name="tiktok-handle" autocomplete="off" maxlength="24" value="' + escapeHtml(tiktok) + '" placeholder="optional" />' +
+            '<span class="hint">Optional link only. Letters, numbers, dots, or underscores. No live badge.</span></div>' +
           '<div class="field span-2"><label>Days</label><div class="choice-grid">' +
             choiceBoxes("self-day", DAYS, days, function (day) { return day; }) +
           "</div></div>" +
@@ -2320,6 +2404,12 @@
       error.textContent = "Add your channel handle.";
       return;
     }
+    var tiktokErr = tiktokHandleError(document.getElementById("self-tiktok").value);
+    if (tiktokErr) {
+      error.textContent = tiktokErr;
+      return;
+    }
+    var tiktok = cleanTikTokHandle(document.getElementById("self-tiktok").value) || null;
     var payload = {
       display_name: (state.me.display_name || state.me.username || handle).trim(),
       platform: platform,
@@ -2329,28 +2419,29 @@
       bio: state.me.bio || null,
       days: checkedValues(form, "self-day"),
       time_of_day: time,
-      mc_types: checkedValues(form, "self-type")
+      mc_types: checkedValues(form, "self-type"),
+      tiktok_handle: tiktok
     };
     var button = form.querySelector('button[type="submit"]');
     button.disabled = true;
-    var result;
-    if (state.myStreamer) {
-      result = await db.from("streamers").update(payload).eq("id", state.myStreamer.id).eq("profile_id", state.session.user.id);
-    } else {
-      result = await createMyStreamer({
+    var result = state.myStreamer
+      ? await writeStreamer("update", payload, state.myStreamer.id)
+      : await createMyStreamer({
         platform: platform,
         channel_handle: handle,
         days: payload.days,
         time_of_day: time,
-        mc_types: payload.mc_types
+        mc_types: payload.mc_types,
+        tiktok_handle: tiktok
       });
-    }
     button.disabled = false;
     if (result.error) {
       error.textContent = friendlyError(result.error);
       return;
     }
-    showToast(state.myStreamer ? "Listing saved" : "You're on the list");
+    showToast(result.tiktokDeferred
+      ? "Listing saved. The TikTok link isn't stored until the database update."
+      : (state.myStreamer ? "Listing saved" : "You're on the list"));
     await loadStreamers();
     paintStreamerSelf(true);
   }
@@ -2633,7 +2724,7 @@
 
   async function createMyStreamer(listing) {
     if (!state.session || !state.me) return { error: { message: "Your profile isn't ready yet." } };
-    return db.from("streamers").insert({
+    return writeStreamer("insert", {
       profile_id: state.session.user.id,
       display_name: (state.me.display_name || state.me.username || listing.channel_handle).trim(),
       platform: listing.platform,
@@ -2643,7 +2734,8 @@
       bio: state.me.bio || null,
       days: listing.days || [],
       time_of_day: listing.time_of_day || null,
-      mc_types: listing.mc_types || []
+      mc_types: listing.mc_types || [],
+      tiktok_handle: listing.tiktok_handle || null
     });
   }
 
@@ -2773,6 +2865,7 @@
     var actions = document.getElementById("profile-actions");
     if (isSelf) {
       actions.innerHTML = '<span class="hint">This is your profile.</span>';
+      appendTikTokButton(actions, streamer);
       document.getElementById("profile-form").addEventListener("submit", saveProfile);
     } else {
       var follow = document.createElement("button");
@@ -2791,6 +2884,7 @@
         link.textContent = "Open channel";
         actions.appendChild(link);
       }
+      appendTikTokButton(actions, streamer);
     }
     els.profileLead.textContent = isSelf
       ? "Your profile, your builds, and who you follow."
@@ -2922,7 +3016,13 @@
 
   function readSignupListing() {
     var handle = document.getElementById("signup-handle").value.replace(/^@+/, "").trim();
-    if (!handle) return null;
+    var tiktokErr = tiktokHandleError(document.getElementById("signup-tiktok").value);
+    if (tiktokErr) return { error: tiktokErr };
+    var tiktok = cleanTikTokHandle(document.getElementById("signup-tiktok").value) || null;
+    if (!handle) {
+      if (tiktok) return { error: "Add your channel handle, or clear the TikTok handle to skip." };
+      return null;
+    }
     if (handle.length > 80) return { error: "Channel handles can be at most 80 characters." };
     var form = document.getElementById("form-signup");
     return {
@@ -2930,7 +3030,8 @@
       channel_handle: handle,
       days: checkedValues(form, "signup-day"),
       time_of_day: document.getElementById("signup-time").value || null,
-      mc_types: checkedValues(form, "signup-type")
+      mc_types: checkedValues(form, "signup-type"),
+      tiktok_handle: tiktok
     };
   }
 
