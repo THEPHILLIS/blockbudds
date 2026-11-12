@@ -1,6 +1,9 @@
 // BlockBudds search-streamers Edge Function
 // Public GET ?q=... — searches Twitch and YouTube for channels not already
 // listed in public.streamers. Called from the browser with the anon key.
+// An empty q, or a generic one such as minecraft, survival, or live, returns
+// popular live Minecraft streams from Twitch (Helix streams, viewer order)
+// plus a Minecraft YouTube search when the daily quota allows.
 // Deploy with verify_jwt = false.
 //
 // Cache: Twitch 10 minutes, YouTube 24 hours.
@@ -17,6 +20,27 @@ const ALLOWED_ORIGINS = new Set([
 const MIN_Q = 2;
 const MAX_Q = 50;
 const TWITCH_FIRST = 10;
+// Helix game id for Minecraft. Browse queries use the live-streams list,
+// which is already ordered by viewer count.
+const MINECRAFT_GAME_ID = "27471";
+const BROWSE_QUERIES = new Set([
+  "",
+  "minecraft",
+  "mc",
+  "live",
+  "survival",
+  "creative",
+  "hardcore",
+  "modded",
+  "smp",
+  "minigames",
+  "streamer",
+  "streamers",
+  "twitch",
+  "youtube",
+  "kick",
+  "tiktok",
+]);
 const YOUTUBE_MAX = 5;
 const YOUTUBE_DAILY_BUDGET = 60;
 const TWITCH_TTL_MS = 10 * 60 * 1000;
@@ -26,6 +50,7 @@ const RATE_WINDOW_MS = 60 * 1000;
 
 const TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const TWITCH_SEARCH_URL = "https://api.twitch.tv/helix/search/channels";
+const TWITCH_STREAMS_URL = "https://api.twitch.tv/helix/streams";
 const YT_API = "https://www.googleapis.com/youtube/v3";
 
 type SearchItem = {
@@ -87,14 +112,17 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const raw = url.searchParams.get("q") ?? "";
   const trimmed = raw.trim();
-  if (trimmed.length < MIN_Q) {
+  const browse = isBrowseQuery(trimmed);
+  if (!browse && trimmed.length < MIN_Q) {
     return json({ error: "query must be at least 2 characters" }, 400, cors);
   }
   if (trimmed.length > MAX_Q) {
     return json({ error: "query must be at most 50 characters" }, 400, cors);
   }
 
-  const queryKey = normalizeQueryKey(trimmed);
+  // Empty and generic searches share one cache entry and one YouTube query.
+  const queryKey = browse ? "minecraft" : normalizeQueryKey(trimmed);
+  const searchText = browse ? "minecraft" : trimmed;
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -128,7 +156,7 @@ Deno.serve(async (req) => {
     twitchCached = true;
   } else {
     try {
-      twitchItems = await searchTwitch(trimmed);
+      twitchItems = browse ? await searchTwitchBrowse() : await searchTwitch(searchText);
       await writeCache(supabase, queryKey, "twitch", twitchItems);
     } catch (err) {
       twitchError = err instanceof Error ? err.message : "twitch search failed";
@@ -145,7 +173,7 @@ Deno.serve(async (req) => {
       youtubeLimited = true;
     } else {
       try {
-        youtubeItems = await searchYoutube(trimmed);
+        youtubeItems = await searchYoutube(searchText);
         await writeCache(supabase, queryKey, "youtube", youtubeItems);
       } catch (err) {
         youtubeError = err instanceof Error ? err.message : "youtube search failed";
@@ -197,6 +225,10 @@ function json(body: unknown, status: number, cors: Headers): Response {
 
 function normalizeQueryKey(q: string): string {
   return q.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isBrowseQuery(q: string): boolean {
+  return BROWSE_QUERIES.has(q.trim().toLowerCase());
 }
 
 function isMinecraft(game: string | null | undefined): boolean {
@@ -410,43 +442,99 @@ async function getTwitchAppToken(): Promise<string> {
   return data.access_token;
 }
 
+function twitchHeaders(token: string, clientId: string): HeadersInit {
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Client-Id": clientId,
+  };
+}
+
+function twitchChannelItem(ch: TwitchChannel, forceLive = false): SearchItem | null {
+  const login = (ch.broadcaster_login || "").trim().toLowerCase();
+  if (!login) return null;
+  const live = forceLive || !!ch.is_live;
+  const game = ch.game_name?.trim() || null;
+  const item: SearchItem = {
+    platform: "twitch",
+    name: ch.display_name || login,
+    handle: login,
+    login,
+    channel_url: `https://twitch.tv/${login}`,
+    avatar_url: ch.thumbnail_url || null,
+    is_live: live,
+    live_title: live ? (ch.title?.trim() || null) : null,
+    game,
+  };
+  if (forceLive || isMinecraft(game)) item.minecraft = true;
+  return item;
+}
+
 async function searchTwitch(q: string): Promise<SearchItem[]> {
   const clientId = Deno.env.get("TWITCH_CLIENT_ID");
   if (!clientId) throw new Error("missing twitch credentials");
   const token = await getTwitchAppToken();
+  return searchTwitchChannels(token, clientId, q);
+}
+
+async function searchTwitchChannels(token: string, clientId: string, q: string): Promise<SearchItem[]> {
   const url = new URL(TWITCH_SEARCH_URL);
   url.searchParams.set("query", q);
   url.searchParams.set("first", String(TWITCH_FIRST));
   url.searchParams.set("live_only", "false");
-  const res = await fetch(url, {
-    headers: {
-      "Authorization": `Bearer ${token}`,
-      "Client-Id": clientId,
-    },
-  });
+  const res = await fetch(url, { headers: twitchHeaders(token, clientId) });
   if (!res.ok) throw new Error(`twitch search http ${res.status}`);
   const data = await res.json() as { data?: TwitchChannel[] };
   const items: SearchItem[] = [];
   for (const ch of data.data ?? []) {
-    const login = (ch.broadcaster_login || "").trim().toLowerCase();
-    if (!login) continue;
-    const live = !!ch.is_live;
-    const game = ch.game_name?.trim() || null;
-    const item: SearchItem = {
-      platform: "twitch",
-      name: ch.display_name || login,
-      handle: login,
-      login,
-      channel_url: `https://twitch.tv/${login}`,
-      avatar_url: ch.thumbnail_url || null,
-      is_live: live,
-      live_title: live ? (ch.title?.trim() || null) : null,
-      game,
-    };
-    if (isMinecraft(game)) item.minecraft = true;
-    items.push(item);
+    const item = twitchChannelItem(ch);
+    if (item) items.push(item);
   }
+  items.sort((a, b) => Number(!!b.is_live) - Number(!!a.is_live));
   return items;
+}
+
+// Popular live Minecraft streams (Helix already sorts by viewers), then
+// other Minecraft channel matches that are not already in that list.
+async function searchTwitchBrowse(): Promise<SearchItem[]> {
+  const clientId = Deno.env.get("TWITCH_CLIENT_ID");
+  if (!clientId) throw new Error("missing twitch credentials");
+  const token = await getTwitchAppToken();
+  const liveUrl = new URL(TWITCH_STREAMS_URL);
+  liveUrl.searchParams.set("game_id", MINECRAFT_GAME_ID);
+  liveUrl.searchParams.set("first", String(TWITCH_FIRST));
+  const res = await fetch(liveUrl, { headers: twitchHeaders(token, clientId) });
+  if (!res.ok) throw new Error(`twitch streams http ${res.status}`);
+  const data = await res.json() as {
+    data?: Array<{
+      user_login?: string;
+      user_name?: string;
+      game_name?: string;
+      title?: string;
+      thumbnail_url?: string;
+    }>;
+  };
+  const live: SearchItem[] = [];
+  const seen = new Set<string>();
+  for (const stream of data.data ?? []) {
+    const item = twitchChannelItem({
+      broadcaster_login: stream.user_login || "",
+      display_name: stream.user_name || stream.user_login || "",
+      game_name: stream.game_name || "Minecraft",
+      is_live: true,
+      thumbnail_url: (stream.thumbnail_url || "").replaceAll("{width}", "320").replaceAll("{height}", "320"),
+      title: stream.title || "",
+    }, true);
+    if (!item || !item.login || seen.has(item.login)) continue;
+    seen.add(item.login);
+    live.push(item);
+  }
+  const extra = await searchTwitchChannels(token, clientId, "minecraft");
+  for (const item of extra) {
+    if (!item.login || seen.has(item.login)) continue;
+    seen.add(item.login);
+    live.push(item);
+  }
+  return live;
 }
 
 function ytThumb(thumbs: Record<string, { url?: string }> | undefined): string | null {
