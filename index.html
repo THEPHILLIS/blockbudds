@@ -1064,17 +1064,7 @@
           </div>
           <div class="field">
             <label for="post-version">Minecraft version</label>
-            <input id="post-version" name="minecraft-version" autocomplete="off" list="version-list" maxlength="32" placeholder="1.21" />
-            <datalist id="version-list">
-              <option value="1.21"></option>
-              <option value="1.21.1"></option>
-              <option value="1.20.6"></option>
-              <option value="1.20"></option>
-              <option value="1.19"></option>
-              <option value="1.18"></option>
-              <option value="1.16"></option>
-              <option value="Bedrock"></option>
-            </datalist>
+            <input id="post-version" name="minecraft-version" type="text" autocomplete="off" maxlength="30" placeholder="e.g. Java 1.21 or Bedrock" />
           </div>
           <div class="field span-2">
             <label for="post-images">Images (up to 3)</label>
@@ -2794,7 +2784,9 @@
     var tags = document.getElementById("post-tags").value.split(",").map(function (tag) {
       return tag.trim().slice(0, 24);
     }).filter(Boolean).slice(0, 12);
-    var version = document.getElementById("post-version").value.trim();
+    var versionInput = document.getElementById("post-version");
+    var version = versionInput.value.trim().slice(0, 30);
+    versionInput.value = version;
     var description = document.getElementById("post-desc").value.trim();
     var button = els.form.querySelector('button[type="submit"]');
     button.disabled = true;
@@ -3495,6 +3487,9 @@
   });
   document.getElementById("pick-images").addEventListener("click", function () {
     els.imageInput.click();
+  });
+  document.getElementById("post-version").addEventListener("blur", function () {
+    this.value = this.value.trim().slice(0, 30);
   });
   els.form.addEventListener("submit", shareBuild);
   var outsideCache = {};
