@@ -826,6 +826,62 @@
     .self-card { padding: 16px 18px; margin: 0 0 16px; }
     .self-card h2 { font-size: 1rem; margin-bottom: 8px; }
     .self-card p { color: var(--ink-dim); margin-bottom: 12px; }
+    .self-box { padding: 0; overflow: hidden; }
+    .self-toggle {
+      width: 100%;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 14px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-weight: 750;
+      text-align: left;
+      cursor: pointer;
+    }
+    .self-toggle:focus-visible {
+      outline: 2px solid var(--grass);
+      outline-offset: -2px;
+    }
+    .self-toggle-copy { min-width: 0; }
+    .self-toggle-copy small {
+      display: block;
+      color: var(--ink-mute);
+      font-size: 0.78rem;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .self-plus {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: #141910;
+      color: #c6f56a;
+      border: 1px solid #3d7a24;
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .self-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.22s ease;
+    }
+    .self-box.is-open .self-panel { grid-template-rows: 1fr; }
+    .self-panel-inner { overflow: hidden; min-height: 0; }
+    .self-box.is-open .self-panel-inner { padding: 0 14px 14px; }
+    .self-panel .form-grid { margin-top: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      .self-panel { transition: none; }
+    }
 
     /* Toast + footer */
     .toast {
@@ -1306,6 +1362,7 @@
     minigames: "Minigames"
   };
   var DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  var selfFormOpen = false;
   var TYPES = ["survival", "creative", "hardcore", "modded", "smp", "minigames"];
   var STOP_WORDS = { only: true, the: true, a: true, an: true, and: true, just: true, of: true };
 
@@ -2343,10 +2400,20 @@
     var platform = mine && mine.platform ? mine.platform : "twitch";
     var handle = mine && mine.channel_handle ? mine.channel_handle : "";
     var tiktok = mine && mine.tiktok_handle ? mine.tiktok_handle : "";
+    var barLabel = mine ? "Your streamer listing" : "List yourself as a streamer";
+    var barDetail = mine ? platformLabel(platform) + " · " + handle : "";
     root.innerHTML =
-      '<form id="self-form" class="card self-card" autocomplete="off">' +
-        "<h2>" + (mine ? "Your streamer listing" : "List yourself") + "</h2>" +
-        "<p>" + (mine ? "Update the channel linked to your profile, or remove it." : "Add your channel. It is linked to your profile, and only you can edit it.") + "</p>" +
+      '<div id="self-box" class="card self-box' + (selfFormOpen ? " is-open" : "") + '">' +
+        '<button type="button" class="self-toggle" id="self-toggle" aria-expanded="' + (selfFormOpen ? "true" : "false") + '" aria-controls="self-panel">' +
+          '<span class="self-toggle-copy"><span>' + escapeHtml(barLabel) + '</span>' +
+            (barDetail ? "<small>" + escapeHtml(barDetail) + "</small>" : "") +
+          "</span>" +
+          '<span class="self-plus" aria-hidden="true">' + (selfFormOpen ? "–" : "+") + '</span>' +
+        '</button>' +
+        '<div id="self-panel" class="self-panel">' +
+          '<div class="self-panel-inner">' +
+      '<form id="self-form" autocomplete="off">' +
+        "<p>" + (mine ? "Update the channel linked to your profile, or remove it." : "It is linked to your profile, and only you can edit it.") + "</p>" +
         '<div class="form-grid">' +
           '<div class="field"><label for="self-platform">Platform</label>' +
             '<select id="self-platform" name="stream-platform">' +
@@ -2373,10 +2440,30 @@
           '<button class="btn btn-primary" type="submit">' + (mine ? "Save listing" : "Add me") + "</button>" +
           (mine ? '<button class="btn btn-ghost" type="button" id="self-remove">Remove listing</button>' : "") +
         "</div>" +
-      "</form>";
+      "</form>" +
+          "</div>" +
+        "</div>" +
+      "</div>";
+    applySelfOpen();
+    document.getElementById("self-toggle").addEventListener("click", function () {
+      selfFormOpen = !selfFormOpen;
+      applySelfOpen();
+    });
     document.getElementById("self-form").addEventListener("submit", saveStreamer);
     var remove = document.getElementById("self-remove");
     if (remove) remove.addEventListener("click", removeStreamer);
+  }
+
+  function applySelfOpen() {
+    var box = document.getElementById("self-box");
+    var toggle = document.getElementById("self-toggle");
+    var panel = document.getElementById("self-panel");
+    if (!box || !toggle || !panel) return;
+    box.classList.toggle("is-open", selfFormOpen);
+    toggle.setAttribute("aria-expanded", selfFormOpen ? "true" : "false");
+    if ("inert" in panel) panel.inert = !selfFormOpen;
+    var mark = toggle.querySelector(".self-plus");
+    if (mark) mark.textContent = selfFormOpen ? "–" : "+";
   }
 
   function optionList(values, selected, labelFn) {
@@ -2442,6 +2529,7 @@
     showToast(result.tiktokDeferred
       ? "Listing saved. The TikTok link isn't stored until the database update."
       : (state.myStreamer ? "Listing saved" : "You're on the list"));
+    selfFormOpen = false;
     await loadStreamers();
     paintStreamerSelf(true);
   }
@@ -2455,6 +2543,7 @@
       return;
     }
     showToast("Listing removed");
+    selfFormOpen = false;
     await loadStreamers();
     paintStreamerSelf(true);
   }
