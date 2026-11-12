@@ -17,6 +17,8 @@ type StreamerRow = {
   platform: string;
   channel_handle: string;
   youtube_channel_id: string | null;
+  twitch_handle?: string | null;
+  youtube_handle?: string | null;
 };
 
 type LiveFields = {
@@ -78,9 +80,10 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // select * so this still runs before twitch_handle / youtube_handle exist.
   const { data: streamers, error: selectError } = await supabase
     .from("streamers")
-    .select("id, platform, channel_handle, youtube_channel_id");
+    .select("*");
 
   if (selectError) {
     return json({ error: "failed to load streamers", detail: selectError.message }, 500);
@@ -89,9 +92,10 @@ Deno.serve(async (req) => {
   const rows = (streamers ?? []) as StreamerRow[];
   // TikTok is link-only (streamers.tiktok_handle or platform tiktok). No public
   // live API, so those rows are never checked and never marked live here.
-  const twitchRows = rows.filter((r) => r.platform === "twitch");
-  const youtubeRows = rows.filter((r) => r.platform === "youtube");
-  const kickRows = rows.filter((r) => r.platform === "kick");
+  // One live state per row. Twitch wins when both Twitch and YouTube are set.
+  const twitchRows = rows.filter((r) => rowTwitchLogin(r));
+  const youtubeRows = rows.filter((r) => rowYoutubeInput(r) && !rowTwitchLogin(r));
+  const kickRows = rows.filter((r) => r.platform === "kick" && !rowTwitchLogin(r) && !rowYoutubeInput(r));
 
   const forceYoutube = wantsForcedYoutube(req);
   const youtubeDue = forceYoutube || (new Date().getUTCMinutes() % 6 === 0);
@@ -189,6 +193,15 @@ function normalizeTwitchLogin(handle: string): string {
   return handle.trim().replace(/^@/, "").toLowerCase();
 }
 
+function rowTwitchLogin(row: StreamerRow): string {
+  const raw = row.twitch_handle || (row.platform === "twitch" ? row.channel_handle : "") || "";
+  return normalizeTwitchLogin(raw);
+}
+
+function rowYoutubeInput(row: StreamerRow): string {
+  return (row.youtube_handle || (row.platform === "youtube" ? row.channel_handle : "") || "").trim();
+}
+
 function twitchThumbnailUrl(url: string | undefined): string | null {
   if (!url) return null;
   return url.replace("{width}x{height}", "440x248");
@@ -281,13 +294,13 @@ async function refreshTwitch(
   if (!clientId) throw new Error("missing twitch credentials");
 
   const token = await getTwitchAppToken();
-  const logins = [...new Set(rows.map((r) => normalizeTwitchLogin(r.channel_handle)).filter(Boolean))];
+  const logins = [...new Set(rows.map((r) => rowTwitchLogin(r)).filter(Boolean))];
   const liveMap = await fetchTwitchStreams(token, clientId, logins);
   const checkedAt = new Date().toISOString();
 
   let liveCount = 0;
   for (const row of rows) {
-    const login = normalizeTwitchLogin(row.channel_handle);
+    const login = rowTwitchLogin(row);
     const stream = liveMap.get(login);
     const fields: LiveFields = stream
       ? {
@@ -377,7 +390,7 @@ async function resolveChannelId(
     return { channelId: row.youtube_channel_id, units: 0 };
   }
 
-  const ref = parseYouTubeInput(row.youtube_channel_id || row.channel_handle);
+  const ref = parseYouTubeInput(row.youtube_channel_id || rowYoutubeInput(row) || row.channel_handle);
   if (ref.channelId && /^UC[\w-]{22}$/.test(ref.channelId)) {
     // Still confirm via cache write later; no API call needed if it's already a UC id.
     return { channelId: ref.channelId, units: 0 };
