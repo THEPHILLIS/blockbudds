@@ -2246,10 +2246,10 @@
     var liveOnly = !!document.getElementById("filter-live").checked;
     return sortLiveFirst(state.streamers.filter(function (row) {
       if (words.length && !words.every(function (word) { return streamerSearchText(row).indexOf(word) !== -1; })) return false;
-      if (platform && row.platform !== platform) return false;
-      if (day && (row.days || []).indexOf(day) === -1) return false;
-      if (time && row.time_of_day !== time) return false;
-      if (type && (row.mc_types || []).map(function (item) { return String(item).toLowerCase(); }).indexOf(type) === -1) return false;
+      if (platform && String(row.platform || "").toLowerCase() !== platform) return false;
+      if (day && (row.days || []).map(function (item) { return String(item).trim(); }).indexOf(day) === -1) return false;
+      if (time && String(row.time_of_day || "").trim().toLowerCase() !== time) return false;
+      if (type && (row.mc_types || []).map(function (item) { return String(item).trim().toLowerCase(); }).indexOf(type) === -1) return false;
       if (liveOnly && !isLive(row)) return false;
       if (followingOnly() && !isFollowed(followIdentityFromListed(row))) return false;
       return true;
@@ -3506,10 +3506,24 @@
     return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
   }
 
-  function outsideApiQuery(raw) {
-    var q = String(raw || "").trim();
-    if (!q) return "minecraft";
-    return q;
+  function outsideKeyword() {
+    var name = searchBoxValue();
+    var type = (document.getElementById("filter-type").value || "").trim();
+    return [name, type].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  function scheduleFilterActive() {
+    return !!(document.getElementById("filter-day").value || document.getElementById("filter-time").value);
+  }
+
+  function outsideApiQuery() {
+    var keyword = outsideKeyword();
+    if (keyword.length > 50) return "";
+    if (keyword.length >= 2) return keyword;
+    var platform = document.getElementById("filter-platform").value;
+    var live = document.getElementById("filter-live").checked;
+    if (live || scheduleFilterActive() || platform === "twitch" || platform === "youtube") return "minecraft";
+    return "";
   }
 
   function clearOutsideSearch() {
@@ -3520,21 +3534,23 @@
     paintStreamers();
   }
 
-  function scheduleOutsideSearch() {
-    var raw = searchBoxValue();
+  function scheduleOutsideSearch(immediate) {
     clearTimeout(outsideTimer);
-    if (raw.length > 50 || raw.length < 2) {
+    var apiQuery = outsideApiQuery();
+    if (!apiQuery) {
       clearOutsideSearch();
       return;
     }
-    var key = outsideQueryKey(outsideApiQuery(raw));
+    var key = outsideQueryKey(apiQuery);
     if (outsideCache[key]) {
       if (outsideAbort) outsideAbort.abort();
       outsideState = { key: key, loading: false, error: false, data: outsideCache[key] };
       paintOutside();
+      paintStreamers();
       return;
     }
-    outsideTimer = setTimeout(function () { fetchOutside(outsideApiQuery(raw), key); }, 500);
+    if (immediate) fetchOutside(apiQuery, key);
+    else outsideTimer = setTimeout(function () { fetchOutside(apiQuery, key); }, 500);
   }
 
   function fetchOutside(raw, key) {
@@ -3573,6 +3589,12 @@
       if (live) return live;
       return (b.minecraft ? 1 : 0) - (a.minecraft ? 1 : 0);
     });
+    var platform = document.getElementById("filter-platform").value;
+    if (platform === "twitch" || platform === "youtube") {
+      list = list.filter(function (item) { return item.platform === platform; });
+    } else if (platform === "kick" || platform === "tiktok") {
+      list = [];
+    }
     if (document.getElementById("filter-live").checked) {
       list = list.filter(function (item) { return !!item.is_live; });
     }
@@ -3639,25 +3661,10 @@
   }
 
   function commitNameSearch() {
-    var raw = searchBoxValue();
     clearTimeout(outsideTimer);
     paintStreamers();
     updateFilterToggle();
-    if (raw.length > 50 || (raw.length > 0 && raw.length < 2)) {
-      clearOutsideSearch();
-      return;
-    }
-    var apiQuery = outsideApiQuery(raw);
-    var key = outsideQueryKey(apiQuery);
-    if (outsideCache[key]) {
-      if (outsideAbort) outsideAbort.abort();
-      outsideState = { key: key, loading: false, error: false, data: outsideCache[key] };
-      paintOutside();
-      paintYourStreamers();
-      paintStreamers();
-      return;
-    }
-    fetchOutside(apiQuery, key);
+    scheduleOutsideSearch(true);
   }
 
   function paintOutside() {
@@ -3673,16 +3680,20 @@
     if (outsideState.error) {
       root.hidden = false;
       root.innerHTML = "<h2>More on Twitch &amp; YouTube</h2>" +
+        (scheduleFilterActive() ? '<p class="outside-status">Day and time filters only apply to BlockBudds streamers.</p>' : "") +
         '<p class="outside-status">Couldn\'t search Twitch and YouTube. Check your connection and try again.</p>';
       maybeRevealSearchResults();
       return;
     }
     root.hidden = false;
-    var browse = outsideState.key === "minecraft" && isEmptyQuery(searchBoxValue());
+    var browse = outsideState.key === "minecraft" && !outsideKeyword();
     root.innerHTML = browse
       ? "<h2>Popular on Twitch &amp; YouTube</h2>"
       : "<h2>More on Twitch &amp; YouTube</h2>";
     if (outsideState.loading && !outsideState.data) {
+      if (scheduleFilterActive()) {
+        root.insertAdjacentHTML("beforeend", '<p class="outside-status">Day and time filters only apply to BlockBudds streamers.</p>');
+      }
       root.insertAdjacentHTML("beforeend", '<p class="outside-status">Searching Twitch and YouTube…</p>');
       maybeRevealSearchResults();
       return;
@@ -3695,6 +3706,9 @@
     }
     if (data.youtube_limited) {
       root.insertAdjacentHTML("beforeend", '<p class="outside-status">YouTube search is busy, try again later.</p>');
+    }
+    if (scheduleFilterActive()) {
+      root.insertAdjacentHTML("beforeend", '<p class="outside-status">Day and time filters only apply to BlockBudds streamers.</p>');
     }
     var list = outsideItems(data);
     if (!list.length) {
@@ -3723,8 +3737,8 @@
       paintStreamers();
       updateFilterToggle();
       var id = event.target && event.target.id;
-      if (id === "filter-name") scheduleOutsideSearch();
-      else if (id === "filter-live") paintOutside();
+      if (id === "filter-name") scheduleOutsideSearch(false);
+      else if (id === "filter-type" || id === "filter-platform" || id === "filter-live" || id === "filter-day" || id === "filter-time") scheduleOutsideSearch(true);
     });
   });
   document.getElementById("filter-following").addEventListener("click", function () {
