@@ -610,6 +610,21 @@
     .platform.twitch { background: #9146ff; }
     .platform.youtube { background: #c4302b; }
     .platform.kick { background: #53fc18; color: #111; }
+    .platform.tiktok {
+      background: #111;
+      color: #fff;
+      box-shadow: inset 0 0 0 1px #25f4ee, inset 3px 0 0 #fe2c55;
+    }
+    .platform-tags {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .platform-tags .platform { margin-top: 0; }
+    a.platform, a.platform:hover { text-decoration: none; color: #fff; }
+    a.platform.kick, a.platform.kick:hover { color: #111; }
     .meta-list { font-size: 0.85rem; color: var(--ink-dim); display: grid; gap: 3px; }
     .meta-list strong { color: var(--ink-mute); font-weight: 650; }
     .streamer-card .bio {
@@ -878,13 +893,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .platform.tiktok { background: #111; color: #fff; box-shadow: inset 0 0 0 1px #25f4ee; }
-    .btn-tiktok {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .btn-tiktok .tiktok-icon { width: 16px; height: 16px; flex-shrink: 0; }
+    .profile-head .platform-tags { margin-top: 6px; }
     .self-card { padding: 16px 18px; margin: 0 0 16px; }
     .self-card h2 { font-size: 1rem; margin-bottom: 8px; }
     .self-card p { color: var(--ink-dim); margin-bottom: 12px; }
@@ -2116,38 +2125,6 @@
     return "";
   }
 
-  function tiktokHandleOf(row) {
-    if (!row) return "";
-    var fromColumn = cleanTikTokHandle(row.tiktok_handle);
-    if (fromColumn && !tiktokHandleError(fromColumn)) return fromColumn;
-    if (row.platform === "tiktok") {
-      var fromChannel = cleanTikTokHandle(row.channel_handle);
-      if (fromChannel && !tiktokHandleError(fromChannel)) return fromChannel;
-    }
-    return "";
-  }
-
-  function tiktokIconSvg() {
-    return '<svg class="tiktok-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14.6 3.2c.5 2.6 1.9 4.4 4.4 4.7v2.7a8 8 0 0 1-4.4-1.3v6.8a6.2 6.2 0 1 1-6.2-6.2c.3 0 .6 0 .9.1v2.8a3.4 3.4 0 1 0 2.4 3.3V3.2h2.9z"/></svg>';
-  }
-
-  function tiktokButton(handle) {
-    if (!handle) return null;
-    var link = document.createElement("a");
-    link.className = "btn btn-ghost btn-tiktok";
-    link.href = "https://www.tiktok.com/@" + handle;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.setAttribute("aria-label", "TikTok @" + handle);
-    link.innerHTML = tiktokIconSvg() + "<span>TikTok</span>";
-    return link;
-  }
-
-  function appendTikTokButton(parent, row) {
-    var button = tiktokButton(tiktokHandleOf(row));
-    if (button && parent) parent.appendChild(button);
-  }
-
   function tiktokColumnUnavailable(error) {
     if (!error) return false;
     var blob = ((error.message || "") + " " + (error.details || "") + " " + (error.hint || "") + " " + (error.code || "")).toLowerCase();
@@ -2219,6 +2196,63 @@
     var name = raw.replace(/^@+/, "");
     if (/^UC[\w-]{22}$/.test(name)) return "https://www.youtube.com/channel/" + name;
     return name ? "https://www.youtube.com/@" + encodeURIComponent(name) : "";
+  }
+
+  function platformHandleFromText(platform, value) {
+    var raw = String(value || "").trim();
+    if (!raw) return "";
+    var looksLikeUrl = /^https?:\/\//i.test(raw) || /twitch\.tv|youtube\.com|youtu\.be|kick\.com|tiktok\.com/i.test(raw);
+    if (looksLikeUrl && platform !== "youtube") {
+      var candidate = /^https?:\/\//i.test(raw) ? raw : "https://" + raw.replace(/^\/\//, "");
+      try {
+        var parts = new URL(candidate).pathname.split("/").filter(Boolean);
+        raw = parts[0] || "";
+      } catch (err) { /* keep the typed value */ }
+    }
+    if (platform === "youtube" && looksLikeUrl) return raw;
+    raw = raw.replace(/^@+/, "").trim();
+    if (!raw || /\s/.test(raw)) return "";
+    if (platform === "twitch" || platform === "kick") raw = raw.toLowerCase();
+    return raw;
+  }
+
+  function platformHref(platform, handle) {
+    if (!handle) return "";
+    if (platform === "youtube") return youtubeChannelPage(handle);
+    if (platform === "kick") return "https://kick.com/" + encodeURIComponent(handle);
+    if (platform === "tiktok") return "https://www.tiktok.com/@" + encodeURIComponent(handle.replace(/^@+/, ""));
+    if (platform === "twitch") return "https://twitch.tv/" + encodeURIComponent(handle);
+    return "";
+  }
+
+  function streamerPlatformLinks(row) {
+    if (!row) return [];
+    var found = {};
+    function add(platform, value) {
+      if (!platform || found[platform]) return;
+      var handle = platformHandleFromText(platform, value);
+      var href = platformHref(platform, handle);
+      if (!href) return;
+      found[platform] = { platform: platform, href: href };
+    }
+    if (row.youtube_channel_id) add("youtube", row.youtube_channel_id);
+    add("twitch", row.twitch_handle);
+    add("youtube", row.youtube_handle);
+    add("kick", row.kick_handle);
+    add("tiktok", row.tiktok_handle);
+    if (row.platform) add(row.platform, row.channel_handle || row.channel_url);
+    return ["twitch", "youtube", "kick", "tiktok"].filter(function (key) {
+      return found[key];
+    }).map(function (key) {
+      return found[key];
+    });
+  }
+
+  function platformTagsHtml(row) {
+    return streamerPlatformLinks(row).map(function (item) {
+      return '<a class="platform ' + escapeHtml(item.platform) + '" href="' + escapeHtml(item.href) + '" target="_blank" rel="noopener noreferrer">' +
+        escapeHtml(platformLabel(item.platform)) + "</a>";
+    }).join("");
   }
 
   function channelPageUrl(row) {
@@ -2445,8 +2479,9 @@
         '<div><div class="name-line"><h3>' + escapeHtml(name) + "</h3>" +
         (row.verified ? verifiedBadgeHtml() : "") +
         "</div>" +
-        '<span class="platform ' + escapeHtml(row.platform) + '">' + escapeHtml(platformLabel(row.platform)) + "</span> " +
-        (live && !thumb ? '<span class="live-badge">Live</span> ' : "") +
+        '<div class="platform-tags">' + platformTagsHtml(row) +
+        (live && !thumb ? '<span class="live-badge">Live</span>' : "") +
+        "</div>" +
         "</div>" +
       followBlockHtml(followIdentityFromListed(row), name) +
       "</div>" +
@@ -2487,7 +2522,6 @@
       link.textContent = "Watch";
       actions.appendChild(link);
     }
-    appendTikTokButton(actions, row);
     return card;
   }
 
@@ -3063,7 +3097,7 @@
           (streamer && streamer.verified ? verifiedBadgeHtml() : "") +
           "</div>" +
           '<div style="color:var(--ink-mute);font-size:.9rem;margin-top:4px">@' + escapeHtml(profile.username) + "</div>" +
-          (streamer ? '<div style="margin-top:6px"><span class="platform ' + escapeHtml(streamer.platform) + '">' + escapeHtml(platformLabel(streamer.platform)) + "</span></div>" : "") +
+          (streamer ? '<div class="platform-tags">' + platformTagsHtml(streamer) + "</div>" : "") +
         "</div></div>" +
         '<div class="profile-stats">' +
           "<span><strong>" + counts.followers + "</strong> " + (counts.followers === 1 ? "follower" : "followers") + "</span>" +
@@ -3080,7 +3114,6 @@
     var actions = document.getElementById("profile-actions");
     if (isSelf) {
       actions.innerHTML = '<span class="hint">This is your profile.</span>';
-      appendTikTokButton(actions, streamer);
       document.getElementById("profile-form").addEventListener("submit", saveProfile);
     } else {
       var follow = document.createElement("button");
@@ -3099,7 +3132,6 @@
         link.textContent = "Open channel";
         actions.appendChild(link);
       }
-      appendTikTokButton(actions, streamer);
     }
     els.profileLead.textContent = isSelf
       ? "Your profile, your builds, and who you follow."
