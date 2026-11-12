@@ -1296,12 +1296,7 @@
   };
   var DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   var TYPES = ["survival", "creative", "hardcore", "modded", "smp", "minigames"];
-  var BROWSE_QUERIES = {
-    minecraft: true, mc: true, live: true,
-    survival: true, creative: true, hardcore: true, modded: true, smp: true, minigames: true,
-    streamer: true, streamers: true,
-    twitch: true, youtube: true, kick: true, tiktok: true
-  };
+  var STOP_WORDS = { only: true, the: true, a: true, an: true, and: true, just: true, of: true };
 
   var db = null;
   var pendingImages = [];
@@ -2061,25 +2056,42 @@
     return (document.getElementById("filter-name").value || "").trim();
   }
 
-  function isBrowseQuery(value) {
-    var name = String(value || "").trim().toLowerCase();
-    return !name || !!BROWSE_QUERIES[name];
+  function isEmptyQuery(value) {
+    return !String(value || "").trim();
+  }
+
+  function searchWords(raw) {
+    return String(raw || "").toLowerCase().split(/\s+/).filter(function (word) {
+      return word && !STOP_WORDS[word];
+    });
+  }
+
+  function streamerSearchText(row) {
+    var types = (row.mc_types || []).map(function (item) {
+      var key = String(item).toLowerCase();
+      return key + " " + String(typeLabel(key) || "").toLowerCase();
+    }).join(" ");
+    return [
+      row.display_name,
+      row.channel_handle,
+      row.bio,
+      row.platform,
+      row.live_title,
+      row.live_game,
+      isLive(row) ? "live" : "",
+      types
+    ].join(" ").toLowerCase();
   }
 
   function filteredStreamers() {
-    var name = searchBoxValue().toLowerCase();
-    var browse = isBrowseQuery(name);
+    var words = searchWords(searchBoxValue());
     var platform = document.getElementById("filter-platform").value;
     var day = document.getElementById("filter-day").value;
     var time = document.getElementById("filter-time").value;
     var type = document.getElementById("filter-type").value;
-    var liveOnly = !!document.getElementById("filter-live").checked || name === "live";
-    if (browse && !type && TYPES.indexOf(name) !== -1) type = name;
-    if (browse && !platform && PLATFORM_LABEL[name]) platform = name;
+    var liveOnly = !!document.getElementById("filter-live").checked;
     return sortLiveFirst(state.streamers.filter(function (row) {
-      var display = (row.display_name || "").toLowerCase();
-      var handle = (row.channel_handle || "").toLowerCase();
-      if (!browse && name && display.indexOf(name) === -1 && handle.indexOf(name) === -1) return false;
+      if (words.length && !words.every(function (word) { return streamerSearchText(row).indexOf(word) !== -1; })) return false;
       if (platform && row.platform !== platform) return false;
       if (day && (row.days || []).indexOf(day) === -1) return false;
       if (time && row.time_of_day !== time) return false;
@@ -2149,8 +2161,8 @@
     if (!list.length) {
       var typed = searchBoxValue();
       var note = "No BlockBudds streamers match every filter. Clear a filter and try again.";
-      if (typed && !isBrowseQuery(typed)) note = "No BlockBudds streamers match that name.";
-      else if (typed.toLowerCase() === "live" || document.getElementById("filter-live").checked) note = "Nobody on BlockBudds is live right now.";
+      if (searchWords(typed).length) note = "No BlockBudds streamers match that search.";
+      else if (document.getElementById("filter-live").checked) note = "Nobody on BlockBudds is live right now.";
       els.streamerResults.innerHTML = '<p class="outside-status">' + escapeHtml(note) + "</p>";
       return;
     }
@@ -3128,7 +3140,7 @@
 
   function outsideApiQuery(raw) {
     var q = String(raw || "").trim();
-    if (isBrowseQuery(q)) return "minecraft";
+    if (!q) return "minecraft";
     return q;
   }
 
@@ -3143,7 +3155,7 @@
   function scheduleOutsideSearch() {
     var raw = searchBoxValue();
     clearTimeout(outsideTimer);
-    if (raw.length > 50 || !raw || (raw.length < 2 && !isBrowseQuery(raw))) {
+    if (raw.length > 50 || raw.length < 2) {
       clearOutsideSearch();
       return;
     }
@@ -3193,7 +3205,7 @@
       if (live) return live;
       return (b.minecraft ? 1 : 0) - (a.minecraft ? 1 : 0);
     });
-    if (document.getElementById("filter-live").checked || searchBoxValue().toLowerCase() === "live") {
+    if (document.getElementById("filter-live").checked) {
       list = list.filter(function (item) { return !!item.is_live; });
     }
     if (followingOnly()) {
@@ -3263,7 +3275,7 @@
     clearTimeout(outsideTimer);
     paintStreamers();
     updateFilterToggle();
-    if (raw.length > 50 || (raw.length > 0 && raw.length < 2 && !isBrowseQuery(raw))) {
+    if (raw.length > 50 || (raw.length > 0 && raw.length < 2)) {
       clearOutsideSearch();
       return;
     }
@@ -3298,7 +3310,7 @@
       return;
     }
     root.hidden = false;
-    var browse = outsideState.key === "minecraft" && isBrowseQuery(searchBoxValue());
+    var browse = outsideState.key === "minecraft" && isEmptyQuery(searchBoxValue());
     root.innerHTML = browse
       ? "<h2>Popular on Twitch &amp; YouTube</h2>"
       : "<h2>More on Twitch &amp; YouTube</h2>";
