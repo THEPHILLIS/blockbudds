@@ -87,6 +87,8 @@ Deno.serve(async (req) => {
   }
 
   const rows = (streamers ?? []) as StreamerRow[];
+  // TikTok is link-only (streamers.tiktok_handle or platform tiktok). No public
+  // live API, so those rows are never checked and never marked live here.
   const twitchRows = rows.filter((r) => r.platform === "twitch");
   const youtubeRows = rows.filter((r) => r.platform === "youtube");
   const kickRows = rows.filter((r) => r.platform === "kick");
