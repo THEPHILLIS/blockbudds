@@ -680,6 +680,56 @@
       font-size: 0.92rem;
     }
     .profile-stats strong { color: var(--ink); }
+    .stat-btn {
+      background: none;
+      border: 0;
+      padding: 0;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .stat-btn:hover, .stat-btn[aria-expanded="true"] { color: var(--ink); }
+    .follow-list { margin-top: 4px; }
+    .follow-list-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .follow-list h2 { font-size: 1.05rem; }
+    .follow-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 1px solid var(--line);
+    }
+    .follow-row .avatar, .follow-row .avatar-fallback {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+    }
+    .follow-row .who {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .follow-row .name {
+      background: none;
+      border: 0;
+      padding: 0;
+      color: var(--ink);
+      font-weight: 750;
+      font-size: 1rem;
+      text-align: left;
+      text-decoration: none;
+    }
+    .follow-row .name:hover { text-decoration: underline; }
+    .follow-row .your-unfollow { position: static; width: 36px; height: 36px; flex: 0 0 auto; }
     .name-search { display: flex; width: 100%; min-width: 0; }
     #filter-name { width: 100%; min-width: 0; }
     #filter-search { display: none; }
@@ -1469,6 +1519,8 @@
   var toastTimer = null;
   var likeBusy = {};
   var profileToken = 0;
+  var followListMode = null;
+  var followListToken = 0;
   var state = {
     session: null,
     me: null,
@@ -1820,6 +1872,8 @@
     state.follows = res.error ? [] : (res.data || []);
     paintYourStreamers();
     refreshFollowButtons();
+    if (followListMode) paintFollowList(state.profileId);
+    noteProfileFollowsChanged();
     if (followingOnly()) {
       paintStreamers();
       paintOutside();
@@ -1850,15 +1904,19 @@
       state.follows = state.follows.filter(function (row) { return row.id !== existing.id; });
       paintYourStreamers();
       refreshFollowButtons();
+      if (followListMode) paintFollowList(state.profileId);
       if (followingOnly()) { paintStreamers(); paintOutside(); }
       var removed = await db.from("streamer_follows").delete().eq("id", existing.id);
       if (removed.error) {
         state.follows = snapshot;
         paintYourStreamers();
         refreshFollowButtons();
+        if (followListMode) paintFollowList(state.profileId);
         if (followingOnly()) { paintStreamers(); paintOutside(); }
         showToast(friendlyError(removed.error));
+        return;
       }
+      noteProfileFollowsChanged();
       return;
     }
     var optimistic = {
@@ -1874,6 +1932,7 @@
     state.follows = state.follows.concat([optimistic]);
     paintYourStreamers();
     refreshFollowButtons();
+    if (followListMode) paintFollowList(state.profileId);
     var inserted = await db.from("streamer_follows").insert({
       user_id: state.session.user.id,
       platform: identity.platform,
@@ -1891,6 +1950,7 @@
       state.follows = snapshot;
       paintYourStreamers();
       refreshFollowButtons();
+      if (followListMode) paintFollowList(state.profileId);
       showToast(friendlyError(inserted.error));
       return;
     }
@@ -1899,6 +1959,7 @@
     });
     paintYourStreamers();
     refreshFollowButtons();
+    noteProfileFollowsChanged();
   }
 
   function heartSvg() {
@@ -3028,35 +3089,221 @@
     return (rows.data || []).length;
   }
 
+  function countsFromRpc(row) {
+    var followers = Number(row.followers) || 0;
+    var following = Number(row.following) || 0;
+    var streamers = row.streamers == null ? 0 : (Number(row.streamers) || 0);
+    var people = row.people_following == null ? null : (Number(row.people_following) || 0);
+    if (people == null) following += streamers;
+    return {
+      followers: followers,
+      following: following,
+      peopleFollowing: people == null ? Math.max(0, following - streamers) : people,
+      streamers: streamers
+    };
+  }
+
   async function profileCounts(profileId) {
     var rpc = await db.rpc("profile_follow_counts", { target: profileId });
     var row = !rpc.error ? rpc.data : null;
     if (typeof row === "string") {
       try { row = JSON.parse(row); } catch (err) { row = null; }
     }
-    if (row && typeof row === "object" && row.followers != null && row.following != null && row.streamers != null) {
-      return {
-        followers: Number(row.followers) || 0,
-        following: Number(row.following) || 0,
-        streamers: Number(row.streamers) || 0,
-        streamersKnown: true
-      };
+    if (row && typeof row === "object" && row.followers != null && row.following != null) {
+      return countsFromRpc(row);
     }
     var followers = await exactCount("follows", "following_id", profileId);
-    var following = await exactCount("follows", "follower_id", profileId);
-    var streamersKnown = false;
+    var people = await exactCount("follows", "follower_id", profileId);
     var streamers = 0;
     if (state.session && state.session.user.id === profileId) {
-      streamersKnown = true;
       streamers = await exactCount("streamer_follows", "user_id", profileId);
       if (!streamers && state.follows.length) streamers = state.follows.length;
     }
     return {
       followers: followers,
-      following: following,
-      streamers: streamers,
-      streamersKnown: streamersKnown
+      following: people + streamers,
+      peopleFollowing: people,
+      streamers: streamers
     };
+  }
+
+  function profileStatsHtml(counts, isSelf) {
+    var followerWord = counts.followers === 1 ? "follower" : "followers";
+    var followers = isSelf
+      ? '<button type="button" class="stat-btn" data-follow-list="followers" aria-expanded="' + (followListMode === "followers" ? "true" : "false") + '"><strong>' + counts.followers + "</strong> " + followerWord + "</button>"
+      : "<span><strong>" + counts.followers + "</strong> " + followerWord + "</span>";
+    var following = isSelf
+      ? '<button type="button" class="stat-btn" data-follow-list="following" aria-expanded="' + (followListMode === "following" ? "true" : "false") + '"><strong>' + counts.following + "</strong> following</button>"
+      : "<span><strong>" + counts.following + "</strong> following</span>";
+    return followers + following;
+  }
+
+  function bindProfileStats() {
+    var box = document.getElementById("profile-stats");
+    if (!box || box.dataset.bound) return;
+    box.dataset.bound = "1";
+    box.addEventListener("click", function (event) {
+      var btn = event.target.closest("[data-follow-list]");
+      if (!btn) return;
+      var mode = btn.getAttribute("data-follow-list");
+      if (followListMode === mode) closeFollowList();
+      else openFollowList(mode);
+    });
+  }
+
+  function closeFollowList() {
+    followListMode = null;
+    followListToken += 1;
+    var list = document.getElementById("follow-list");
+    if (list) list.remove();
+    document.querySelectorAll("[data-follow-list]").forEach(function (btn) {
+      btn.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function openFollowList(mode) {
+    followListMode = mode;
+    document.querySelectorAll("[data-follow-list]").forEach(function (btn) {
+      btn.setAttribute("aria-expanded", btn.getAttribute("data-follow-list") === mode ? "true" : "false");
+    });
+    paintFollowList(state.profileId);
+  }
+
+  async function peopleFollowRows(column, profileId) {
+    var res = await db.from("follows").select("follower_id, following_id").eq(column, profileId);
+    if (res.error) return [];
+    var ids = (res.data || []).map(function (row) {
+      return column === "follower_id" ? row.following_id : row.follower_id;
+    }).filter(Boolean);
+    if (!ids.length) return [];
+    var profiles = await db.from("profiles").select("id, username, display_name, avatar_url").in("id", ids);
+    var byId = {};
+    (profiles.data || []).forEach(function (person) { byId[person.id] = person; });
+    return ids.map(function (id) {
+      var person = byId[id] || {};
+      return {
+        kind: "person",
+        id: id,
+        name: person.display_name || person.username || "Member",
+        avatar: person.avatar_url || ""
+      };
+    });
+  }
+
+  function followListRow(row) {
+    var el = document.createElement("div");
+    el.className = "follow-row";
+    el.insertAdjacentHTML("beforeend", avatarHtml(row.name, row.avatar));
+    var who = document.createElement("div");
+    who.className = "who";
+    if (row.kind === "person") {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "name";
+      button.textContent = row.name;
+      button.setAttribute("data-profile", row.id);
+      who.appendChild(button);
+    } else {
+      var link = document.createElement("a");
+      link.className = "name";
+      link.textContent = row.name;
+      if (row.href) {
+        link.href = row.href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+      }
+      who.appendChild(link);
+      if (row.platform && row.href) {
+        var tag = document.createElement("a");
+        tag.className = "platform " + row.platform;
+        tag.href = row.href;
+        tag.target = "_blank";
+        tag.rel = "noopener noreferrer";
+        tag.textContent = platformLabel(row.platform);
+        who.appendChild(tag);
+      }
+    }
+    el.appendChild(who);
+    if (followListMode === "following") {
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "your-unfollow";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", "Unfollow " + row.name);
+      remove.addEventListener("click", function () {
+        if (row.kind === "person") unfollowPerson(row.id);
+        else toggleStreamerFollow(row.identity);
+      });
+      el.appendChild(remove);
+    }
+    return el;
+  }
+
+  async function paintFollowList(profileId) {
+    var token = ++followListToken;
+    var mode = followListMode;
+    var existing = document.getElementById("follow-list");
+    if (!mode) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (!existing) {
+      existing = document.createElement("section");
+      existing.id = "follow-list";
+      existing.className = "card follow-list";
+      var stats = document.getElementById("profile-stats");
+      if (stats) stats.insertAdjacentElement("afterend", existing);
+      else els.profileRoot.appendChild(existing);
+    }
+    existing.innerHTML =
+      '<div class="follow-list-head"><h2>' + (mode === "followers" ? "Followers" : "Following") + "</h2>" +
+      '<button type="button" class="btn btn-ghost" id="follow-list-close">Close</button></div>' +
+      '<div class="follow-rows"><p class="outside-status">Loading…</p></div>';
+    document.getElementById("follow-list-close").addEventListener("click", closeFollowList);
+    var rows = [];
+    if (mode === "following") {
+      var people = await peopleFollowRows("follower_id", profileId);
+      var streamers = (state.follows || []).map(function (follow) {
+        return {
+          kind: "streamer",
+          id: follow.id,
+          name: follow.display_name || "Streamer",
+          avatar: follow.avatar_url || "",
+          platform: follow.platform,
+          href: follow.channel_url || "",
+          identity: identityFromFollow(follow)
+        };
+      });
+      rows = people.concat(streamers);
+    } else {
+      rows = await peopleFollowRows("following_id", profileId);
+    }
+    if (token !== followListToken || followListMode !== mode) return;
+    var body = existing.querySelector(".follow-rows");
+    if (!body) return;
+    body.innerHTML = "";
+    if (!rows.length) {
+      var extra = mode === "followers" && state.session && state.profileId === state.session.user.id
+        ? " People who follow your streamer listing are included in the count."
+        : "";
+      body.innerHTML = '<p class="outside-status">' + (mode === "followers" ? "No one follows you yet." : "You aren't following anyone yet.") + extra + "</p>";
+      return;
+    }
+    rows.forEach(function (row) { body.appendChild(followListRow(row)); });
+  }
+
+  function noteProfileFollowsChanged() {
+    if (state.view !== "profile" || !state.profileId) return;
+    var id = state.profileId;
+    var isSelf = !!(state.session && state.session.user.id === id);
+    profileCounts(id).then(function (counts) {
+      if (state.profileId !== id) return;
+      var box = document.getElementById("profile-stats");
+      if (!box) return;
+      var joined = box.querySelector(".stat-joined");
+      box.innerHTML = profileStatsHtml(counts, isSelf) + (joined ? joined.outerHTML : "");
+      if (isSelf && followListMode) paintFollowList(id);
+    });
   }
 
   async function renderProfile() {
@@ -3099,11 +3346,9 @@
           '<div style="color:var(--ink-mute);font-size:.9rem;margin-top:4px">@' + escapeHtml(profile.username) + "</div>" +
           (streamer ? '<div class="platform-tags">' + platformTagsHtml(streamer) + "</div>" : "") +
         "</div></div>" +
-        '<div class="profile-stats">' +
-          "<span><strong>" + counts.followers + "</strong> " + (counts.followers === 1 ? "follower" : "followers") + "</span>" +
-          "<span><strong>" + counts.following + "</strong> following</span>" +
-          (counts.streamersKnown ? "<span><strong>" + counts.streamers + "</strong> " + (counts.streamers === 1 ? "streamer" : "streamers") + "</span>" : "") +
-          "<span>Joined " + escapeHtml(formatDate(profile.created_at)) + "</span>" +
+        '<div class="profile-stats" id="profile-stats">' +
+          profileStatsHtml(counts, isSelf) +
+          '<span class="stat-joined">Joined ' + escapeHtml(formatDate(profile.created_at)) + "</span>" +
         "</div>" +
         (profile.bio ? '<p class="bio">' + escapeHtml(profile.bio) + "</p>" : '<p class="bio">No bio yet.</p>') +
         '<div class="card-actions" id="profile-actions" style="margin-top:16px"></div>' +
@@ -3150,6 +3395,8 @@
     }
     if (isSelf) els.profileRoot.appendChild(streamerLinksBox(streamer));
     els.profileRoot.appendChild(list);
+    bindProfileStats();
+    if (isSelf && followListMode) paintFollowList(profile.id);
   }
 
   var LINK_PLATFORMS = ["twitch", "youtube", "kick", "tiktok"];
@@ -3390,7 +3637,20 @@
       return;
     }
     showToast(following ? "Unfollowed" : "Followed");
-    renderProfile();
+    button.setAttribute("aria-pressed", following ? "false" : "true");
+    button.textContent = following ? "Follow" : "Following";
+    noteProfileFollowsChanged();
+  }
+
+  async function unfollowPerson(profileId) {
+    if (!requireAuth("Log in to unfollow.")) return;
+    var result = await db.from("follows").delete().eq("follower_id", state.session.user.id).eq("following_id", profileId);
+    if (result.error) {
+      showToast(friendlyError(result.error));
+      return;
+    }
+    showToast("Unfollowed");
+    noteProfileFollowsChanged();
   }
 
   async function logout() {
